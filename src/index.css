@@ -4,8 +4,9 @@
 
 @layer base {
   body {
-    @apply bg-[#080C14] text-slate-100 antialiased selection:bg-cyan-500/30 selection:text-cyan-200;
+    @apply bg-[#FAFAFE] text-slate-800 antialiased selection:bg-purple-500/20 selection:text-purple-900;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   }
 }
 
@@ -15,83 +16,173 @@
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #0B0F19;
+  background: #F1F5F9;
 }
 ::-webkit-scrollbar-thumb {
-  background: #1F2937;
+  background: #CBD5E1;
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #374151;
+  background: #94A3B8;
 }
 
-/* Sci-Fi HUD Scanline & Grid Textures */
-.hud-scanlines {
-  background-image: repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.018) 0px, transparent 1px, transparent 3px);
+/* Animated Aurora Flow Keyframes */
+@keyframes auroraFlow {
+  0% {
+    transform: scale(1) translate(0px, 0px) rotate(0deg);
+  }
+  33% {
+    transform: scale(1.18) translate(50px, -40px) rotate(8deg);
+  }
+  66% {
+    transform: scale(0.92) translate(-40px, 30px) rotate(-8deg);
+  }
+  100% {
+    transform: scale(1) translate(0px, 0px) rotate(0deg);
+  }
 }
 
-.hud-grid-dots {
-  background-image: radial-gradient(rgba(6, 182, 212, 0.12) 1px, transparent 1px);
-  background-size: 24px 24px;
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 
-/* Tactical Corner Reticle Accents */
-.reticle-box {
+@keyframes floatSlow {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.05);
+  }
+}
+
+/* Floating Ambient Aurora Glow Blobs */
+.aurora-blob-1 {
+  position: absolute;
+  width: 700px;
+  height: 700px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(192, 132, 252, 0.28) 0%, rgba(232, 121, 249, 0.12) 50%, transparent 70%);
+  filter: blur(80px);
+  animation: auroraFlow 20s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.aurora-blob-2 {
+  position: absolute;
+  width: 750px;
+  height: 750px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.26) 0%, rgba(99, 102, 241, 0.14) 50%, transparent 70%);
+  filter: blur(85px);
+  animation: auroraFlow 24s ease-in-out infinite reverse;
+  pointer-events: none;
+}
+
+.aurora-blob-3 {
+  position: absolute;
+  width: 600px;
+  height: 600px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(251, 113, 133, 0.22) 0%, rgba(253, 224, 71, 0.16) 50%, transparent 70%);
+  filter: blur(75px);
+  animation: auroraFlow 28s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* Luminescent Prism Glass Card */
+.prism-glass {
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 10px 30px -10px rgba(124, 58, 237, 0.06), 0 20px 25px -5px rgba(15, 23, 42, 0.03), inset 0 1px 2px 0 rgba(255, 255, 255, 0.95);
+}
+
+.prism-glass-card {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  box-shadow: 0 4px 20px -2px rgba(124, 58, 237, 0.05), 0 2px 6px -1px rgba(15, 23, 42, 0.03);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.prism-glass-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 34px -6px rgba(124, 58, 237, 0.12), 0 4px 12px -2px rgba(15, 23, 42, 0.05);
+  border-color: rgba(192, 132, 252, 0.45);
+}
+
+/* Shimmering Animated Gradient Border */
+.prism-gradient-border {
   position: relative;
-}
-.reticle-box::before {
-  content: '';
-  position: absolute;
-  top: -1px;
-  left: -1px;
-  width: 10px;
-  height: 10px;
-  border-top: 2px solid #06B6D4;
-  border-left: 2px solid #06B6D4;
-  pointer-events: none;
-  z-index: 10;
-  border-top-left-radius: 4px;
-}
-.reticle-box::after {
-  content: '';
-  position: absolute;
-  bottom: -1px;
-  right: -1px;
-  width: 10px;
-  height: 10px;
-  border-bottom: 2px solid #06B6D4;
-  border-right: 2px solid #06B6D4;
-  pointer-events: none;
-  z-index: 10;
-  border-bottom-right-radius: 4px;
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.15), rgba(6, 182, 212, 0.15), rgba(244, 63, 94, 0.15));
+  padding: 1.5px;
+  border-radius: 1rem;
 }
 
-/* Pulse laser keyframe */
-@keyframes laserSweep {
-  0% { transform: translateX(-100%); }
-  50% { transform: translateX(100%); }
-  100% { transform: translateX(200%); }
+.prism-gradient-border-inner {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(24px);
+  border-radius: calc(1rem - 1.5px);
 }
 
-.animate-laser {
-  animation: laserSweep 3.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+/* Aurora Kinetic Buttons */
+.btn-aurora {
+  background: linear-gradient(135deg, #7C3AED 0%, #06B6D4 100%);
+  color: #ffffff;
+  box-shadow: 0 6px 20px -3px rgba(124, 58, 237, 0.35);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Neon Glows & Accents */
-.glow-cyan {
-  box-shadow: 0 0 25px -4px rgba(6, 182, 212, 0.35);
+.btn-aurora:hover {
+  box-shadow: 0 10px 28px -3px rgba(124, 58, 237, 0.5);
+  transform: translateY(-1.5px);
 }
 
-.glow-emerald {
-  box-shadow: 0 0 25px -4px rgba(16, 185, 129, 0.35);
+.btn-aurora:active {
+  transform: translateY(0px);
 }
 
-.glow-amber {
-  box-shadow: 0 0 25px -4px rgba(245, 158, 11, 0.35);
+.btn-aurora-emerald {
+  background: linear-gradient(135deg, #059669 0%, #0D9488 100%);
+  color: #ffffff;
+  box-shadow: 0 6px 20px -3px rgba(5, 150, 105, 0.35);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.glass-panel {
-  background: rgba(17, 24, 39, 0.82);
-  backdrop-filter: blur(16px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+.btn-aurora-emerald:hover {
+  box-shadow: 0 10px 28px -3px rgba(5, 150, 105, 0.5);
+  transform: translateY(-1.5px);
+}
+
+.btn-aurora-emerald:active {
+  transform: translateY(0px);
+}
+
+/* Shimmer animated sweep */
+.animate-shimmer-sweep {
+  background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.7) 50%, rgba(255,255,255,0) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 3s infinite;
+}
+
+/* Subtle dots mesh for texture */
+.aurora-dots {
+  background-image: radial-gradient(rgba(124, 58, 237, 0.08) 1.2px, transparent 1.2px);
+  background-size: 28px 28px;
 }

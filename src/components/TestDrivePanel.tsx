@@ -77,21 +77,21 @@ export const TestDrivePanel: React.FC<TestDrivePanelProps> = ({
   };
 
   return (
-    <div className="reticle-box bg-[#111827]/90 border border-slate-800/90 rounded-xl overflow-hidden backdrop-blur-md shadow-2xl flex flex-col relative">
+    <div className="prism-glass rounded-2xl overflow-hidden border border-white/80 shadow-lg shadow-purple-500/5 backdrop-blur-xl flex flex-col relative">
       {/* Header */}
-      <div className="p-3.5 bg-slate-900/90 border-b border-slate-800/80 flex items-center justify-between">
-        <div className="flex items-center space-x-2">
-          <div className="p-1 rounded bg-emerald-950/80 border border-emerald-500/40 text-emerald-400 shadow-sm shadow-emerald-500/20">
+      <div className="p-3.5 bg-slate-50/80 border-b border-slate-200/80 flex items-center justify-between">
+        <div className="flex items-center space-x-2.5">
+          <div className="p-1.5 rounded-lg bg-emerald-100 text-emerald-700 border border-emerald-200 shadow-sm">
             <Terminal className="h-4 w-4" />
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <span className="font-mono text-[9px] text-emerald-400/80 tracking-widest uppercase">SYS // SANDBOX_RUNTIME</span>
-              <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-950/80 text-emerald-300 border border-emerald-500/40 shadow-sm shadow-emerald-500/20">
+              <span className="font-mono text-[9px] text-emerald-700 font-bold tracking-wider uppercase">SYS // SANDBOX_RUNTIME</span>
+              <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-sm">
                 SANDBOX READY
               </span>
             </div>
-            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-200">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800">
               Live Execution Test Drive
             </h2>
           </div>
@@ -100,7 +100,7 @@ export const TestDrivePanel: React.FC<TestDrivePanelProps> = ({
         <button
           onClick={handleRunTestDrive}
           disabled={isRunning || !masterPrompt}
-          className="flex items-center space-x-1.5 px-3.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-lg text-xs font-bold transition-all shadow-md shadow-emerald-600/30 hover:shadow-emerald-500/50 glow-emerald disabled:opacity-50"
+          className="btn-aurora-emerald flex items-center space-x-1.5 px-4 py-1.5 rounded-xl text-xs font-bold shadow-md disabled:opacity-50"
         >
           {isRunning ? (
             <>
@@ -120,12 +120,12 @@ export const TestDrivePanel: React.FC<TestDrivePanelProps> = ({
         {/* Left: Test Payload Input */}
         <div className="flex flex-col space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-300 flex items-center space-x-1.5 font-mono">
-              <FileCode2 className="h-3.5 w-3.5 text-cyan-400" />
+            <span className="text-xs font-bold text-slate-700 flex items-center space-x-1.5 font-mono">
+              <FileCode2 className="h-3.5 w-3.5 text-purple-600" />
               <span>Test Payload (Input context / Sample code):</span>
             </span>
             {defaultPayloadTitle && (
-              <span className="text-[11px] font-mono text-slate-400 truncate max-w-[200px]" title={defaultPayloadTitle}>
+              <span className="text-[11px] font-mono text-slate-500 truncate max-w-[200px]" title={defaultPayloadTitle}>
                 {defaultPayloadTitle}
               </span>
             )}
@@ -136,58 +136,58 @@ export const TestDrivePanel: React.FC<TestDrivePanelProps> = ({
             value={payload}
             onChange={(e) => setPayload(e.target.value)}
             placeholder="Paste your code snippet, raw transcript, query, or text context to test how the Master Prompt performs..."
-            className="w-full bg-[#0B0F19] text-slate-200 font-mono text-xs p-3.5 rounded-lg border border-slate-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-none transition-all leading-relaxed resize-y shadow-inner"
+            className="w-full bg-slate-50/70 text-slate-800 font-mono text-xs p-4 rounded-xl border border-slate-200 focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 focus:outline-none transition-all leading-relaxed resize-y shadow-inner"
           />
 
           <div className="text-[11px] font-mono text-slate-500 flex items-center justify-between">
             <span>{payload.length} CHARS</span>
-            <span className="text-cyan-400/80">DIRECTIVES_ENFORCED: STRICT</span>
+            <span className="text-purple-700 font-semibold">DIRECTIVES_ENFORCED: STRICT</span>
           </div>
         </div>
 
         {/* Right: Real-time Model Execution Output */}
         <div className="flex flex-col space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-300 flex items-center space-x-1.5 font-mono">
-              <Cpu className="h-3.5 w-3.5 text-emerald-400" />
+            <span className="text-xs font-bold text-slate-700 flex items-center space-x-1.5 font-mono">
+              <Cpu className="h-3.5 w-3.5 text-emerald-600" />
               <span>Execution Output & Verification:</span>
             </span>
 
             {response && (
               <div className="flex items-center space-x-2">
-                <span className="text-[10px] font-mono text-cyan-300 bg-cyan-950/80 px-2 py-0.5 rounded border border-cyan-500/40 shadow-sm shadow-cyan-500/20">
+                <span className="text-[10px] font-mono text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200 font-semibold">
                   {response.executionTimeMs}ms
                 </span>
-                <span className="text-[10px] font-mono text-emerald-300 bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-500/40 shadow-sm shadow-emerald-500/20">
+                <span className="text-[10px] font-mono text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 font-semibold">
                   {response.outputTokens} TOKENS
                 </span>
                 <button
                   onClick={handleCopyResponse}
-                  className="p-1 text-slate-400 hover:text-emerald-400 transition-colors"
+                  className="p-1 text-slate-500 hover:text-emerald-600 transition-colors"
                   title="Copy Output"
                 >
-                  {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                  {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
                 </button>
               </div>
             )}
           </div>
 
-          <div className="w-full h-[278px] bg-[#0B0F19] rounded-lg border border-slate-800/90 p-3.5 overflow-y-auto font-mono text-xs text-slate-200 leading-relaxed shadow-inner relative">
+          <div className="w-full h-[278px] bg-slate-50/60 rounded-xl border border-slate-200 p-4 overflow-y-auto font-mono text-xs text-slate-800 leading-relaxed shadow-inner relative">
             {isRunning ? (
               <div className="flex flex-col items-center justify-center h-full text-slate-500 space-y-2">
-                <Sparkles className="h-6 w-6 text-emerald-400 animate-spin" />
-                <p className="text-xs font-mono font-medium text-emerald-400">Running synthesized prompt against payload...</p>
-                <p className="text-[11px] font-mono text-slate-600">Enforcing strict zero-overhead constraint rules</p>
+                <Sparkles className="h-6 w-6 text-emerald-600 animate-spin" />
+                <p className="text-xs font-mono font-medium text-emerald-700">Running synthesized prompt against payload...</p>
+                <p className="text-[11px] font-mono text-slate-500">Enforcing strict zero-overhead constraint rules</p>
               </div>
             ) : response ? (
-              <pre className="whitespace-pre-wrap select-all font-mono text-xs text-slate-200">
+              <pre className="whitespace-pre-wrap select-all font-mono text-xs text-slate-800">
                 {response.response}
               </pre>
             ) : (
-              <div className="flex flex-col items-center justify-center h-full text-center text-slate-500 space-y-2">
-                <Play className="h-6 w-6 text-slate-600" />
-                <p className="text-xs font-medium text-slate-400">No execution run yet.</p>
-                <p className="text-[11px] text-slate-600 max-w-xs">
+              <div className="flex flex-col items-center justify-center h-full text-center text-slate-400 space-y-2">
+                <Play className="h-6 w-6 text-slate-300" />
+                <p className="text-xs font-medium text-slate-600">No execution run yet.</p>
+                <p className="text-[11px] text-slate-400 max-w-xs">
                   Click &ldquo;Run Test Drive&rdquo; to execute the master prompt with the sample payload.
                 </p>
               </div>
@@ -195,10 +195,10 @@ export const TestDrivePanel: React.FC<TestDrivePanelProps> = ({
           </div>
 
           {response && (
-            <div className="text-[11px] font-mono text-slate-400 flex items-center justify-between">
-              <span>ENGINE: <strong className="text-cyan-400">{response.modelSimulated}</strong></span>
-              <span className="text-emerald-400 font-semibold flex items-center space-x-1">
-                <CheckCircle2 className="h-3.5 w-3.5" />
+            <div className="text-[11px] font-mono text-slate-500 flex items-center justify-between">
+              <span>ENGINE: <strong className="text-purple-700">{response.modelSimulated}</strong></span>
+              <span className="text-emerald-700 font-semibold flex items-center space-x-1">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
                 <span>ALL CONSTRAINTS VERIFIED // 100% PASS</span>
               </span>
             </div>

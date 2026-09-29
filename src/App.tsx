@@ -219,10 +219,11 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#080C14] text-slate-100 flex flex-col font-sans relative overflow-x-hidden hud-grid-dots">
-      {/* Ambient Cyber Auras */}
-      <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-cyan-500/5 rounded-full blur-3xl pointer-events-none -z-10" />
-      <div className="absolute top-1/3 right-10 w-[500px] h-[500px] bg-purple-500/5 rounded-full blur-3xl pointer-events-none -z-10" />
+    <div className="min-h-screen bg-[#FAFAFE] text-slate-800 flex flex-col font-sans relative overflow-x-hidden aurora-dots">
+      {/* Floating Ambient Animated Aurora Blobs */}
+      <div className="aurora-blob-1 -top-24 -left-24" />
+      <div className="aurora-blob-2 top-80 -right-32" />
+      <div className="aurora-blob-3 -bottom-24 left-1/4" />
 
       {/* Navigation Header */}
       <Header
@@ -235,26 +236,26 @@ export const App: React.FC = () => {
       />
 
       {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 relative z-10">
         
         {/* Preset Description Banner */}
-        <div className="reticle-box bg-gradient-to-r from-cyan-950/40 via-slate-900/80 to-purple-950/40 border border-cyan-900/40 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xl backdrop-blur-sm relative">
+        <div className="prism-glass rounded-2xl p-5 border border-white/80 shadow-lg shadow-purple-500/5 backdrop-blur-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-all duration-300 hover:shadow-xl hover:shadow-purple-500/10">
           <div>
-            <div className="flex items-center space-x-2">
-              <span className="font-mono text-[9px] text-cyan-400 font-bold uppercase tracking-widest px-1.5 py-0.5 rounded bg-cyan-950/80 border border-cyan-500/30">
+            <div className="flex items-center space-x-2.5">
+              <span className="font-mono text-[10px] text-purple-700 font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-purple-100/80 border border-purple-200">
                 ACTIVE PRESET
               </span>
-              <h2 className="text-sm font-bold text-white tracking-wide">
+              <h2 className="text-base font-extrabold text-slate-900 tracking-tight">
                 {PRESET_SCENARIOS.find(p => p.id === selectedPresetId)?.title}
               </h2>
             </div>
-            <p className="text-xs text-slate-400 mt-1 max-w-3xl leading-relaxed">
+            <p className="text-xs text-slate-600 mt-1.5 max-w-3xl leading-relaxed">
               {PRESET_SCENARIOS.find(p => p.id === selectedPresetId)?.description}
             </p>
           </div>
           <div className="flex flex-wrap gap-1.5 shrink-0">
             {PRESET_SCENARIOS.find(p => p.id === selectedPresetId)?.tags.map((tag, idx) => (
-              <span key={idx} className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-slate-900/90 text-cyan-300 border border-cyan-900/50 shadow-sm">
+              <span key={idx} className="text-[10px] font-mono font-semibold px-2.5 py-1 rounded-full bg-slate-100/90 text-slate-700 border border-slate-200/80 shadow-sm hover:bg-white hover:text-purple-700 transition-colors">
                 #{tag}
               </span>
             ))}
@@ -312,8 +313,8 @@ export const App: React.FC = () => {
       />
 
       {/* Footer */}
-      <footer className="border-t border-slate-800/80 bg-[#0B0F19] py-4 text-center text-xs text-slate-500">
-        <p>PromptOptimizer — Multi-Platform Prompt Compressor & Accurate Synthesizer</p>
+      <footer className="border-t border-slate-200/70 bg-white/60 backdrop-blur-md py-4 text-center text-xs text-slate-500 relative z-10">
+        <p className="font-medium">PromptOptimizer — Luminescent Aurora Frost & Multi-Platform Prompt Synthesizer</p>
       </footer>
     </div>
   );
