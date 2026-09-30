@@ -5,15 +5,21 @@ import { ModeSelector } from './components/ModeSelector';
 import { MasterPromptView } from './components/MasterPromptView';
 import { AnalyticsDashboard } from './components/AnalyticsDashboard';
 import { TestDrivePanel } from './components/TestDrivePanel';
-import { HistoryDrawer } from './components/HistoryDrawer';
 import { PRESET_SCENARIOS } from './data/presets';
 import { PromptSlot, CompressionMode, SynthesisResult } from './types';
 import { compilePrompts, generateMasterPrompt, estimateTokens } from './engine/compiler';
 
-const STORAGE_KEY = 'prompt_optimizer_history_v1';
-
 export const App: React.FC = () => {
   const initialPreset = PRESET_SCENARIOS[0];
+
+  // Clean wipe any legacy history from browser storage for a fresh webpage experience
+  useEffect(() => {
+    try {
+      localStorage.removeItem('prompt_optimizer_history_v1');
+    } catch {
+      // ignore
+    }
+  }, []);
 
   // State: Slots
   const [slots, setSlots] = useState<PromptSlot[]>(
@@ -37,17 +43,6 @@ export const App: React.FC = () => {
   const [synthesis, setSynthesis] = useState<SynthesisResult | null>(null);
   const [isCompiling, setIsCompiling] = useState<boolean>(false);
 
-  // State: History Drawer
-  const [isHistoryOpen, setIsHistoryOpen] = useState<boolean>(false);
-  const [history, setHistory] = useState<SynthesisResult[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
-
   // Compile Handler (Server-first with client fallback)
   const executeCompilation = useCallback(async (activeSlots: PromptSlot[], mode: CompressionMode) => {
     setIsCompiling(true);
@@ -67,22 +62,10 @@ export const App: React.FC = () => {
 
       setSynthesis(result);
 
-      // Append to history
-      setHistory(prev => {
-        const next = [result, ...prev.slice(0, 49)];
-        try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-        } catch (e) {
-          console.warn('LocalStorage save failed', e);
-        }
-        return next;
-      });
-
     } catch (err) {
       console.warn('Using client-side compiler fallback:', err);
       const fallback = compilePrompts(activeSlots, mode);
       setSynthesis(fallback);
-      setHistory(prev => [fallback, ...prev.slice(0, 49)]);
     } finally {
       setIsCompiling(false);
     }
@@ -188,36 +171,6 @@ export const App: React.FC = () => {
     handleSelectPreset(PRESET_SCENARIOS[0].id);
   };
 
-  // Restore history snapshot
-  const handleRestoreHistory = (item: SynthesisResult) => {
-    setSynthesis(item);
-    setCurrentMode(item.mode);
-    setIsHistoryOpen(false);
-  };
-
-  // Clear History
-  const handleClearHistory = () => {
-    setHistory([]);
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-    } catch (e) {
-      console.warn(e);
-    }
-  };
-
-  // Delete single history item
-  const handleDeleteHistoryItem = (id: string) => {
-    setHistory(prev => {
-      const next = prev.filter(item => item.id !== id);
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      } catch (e) {
-        console.warn(e);
-      }
-      return next;
-    });
-  };
-
   const VIBGYOR_TAG_CLASSES = [
     'badge-vibgyor-v', // Violet
     'badge-vibgyor-i', // Indigo
@@ -235,14 +188,12 @@ export const App: React.FC = () => {
       <div className="vibgyor-ambient-bg top-80 -right-32" />
       <div className="vibgyor-ambient-yor -bottom-24 left-1/4" />
 
-      {/* Navigation Header */}
+      {/* Navigation Header (Fresh, without history) */}
       <Header
         presets={PRESET_SCENARIOS}
         selectedPresetId={selectedPresetId}
         onSelectPreset={handleSelectPreset}
-        onOpenHistory={() => setIsHistoryOpen(true)}
         onReset={handleReset}
-        historyCount={history.length}
       />
 
       {/* Main Container */}
@@ -319,16 +270,6 @@ export const App: React.FC = () => {
         />
 
       </main>
-
-      {/* History Drawer */}
-      <HistoryDrawer
-        isOpen={isHistoryOpen}
-        onClose={() => setIsHistoryOpen(false)}
-        history={history}
-        onRestore={handleRestoreHistory}
-        onClearHistory={handleClearHistory}
-        onDeleteHistoryItem={handleDeleteHistoryItem}
-      />
 
       {/* Footer */}
       <footer className="border-t border-slate-200/80 bg-white/90 backdrop-blur-md py-4 text-center text-xs text-slate-500 relative z-10">

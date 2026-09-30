@@ -1,7 +1,6 @@
 import React from 'react';
 import { 
   Sparkles, 
-  History, 
   RotateCcw, 
   Layers
 } from 'lucide-react';
@@ -11,9 +10,7 @@ interface HeaderProps {
   presets: PresetScenario[];
   selectedPresetId: string;
   onSelectPreset: (presetId: string) => void;
-  onOpenHistory: () => void;
   onReset: () => void;
-  historyCount: number;
 }
 
 const VIBGYOR_SPECTRUM = [
@@ -30,9 +27,7 @@ export const Header: React.FC<HeaderProps> = ({
   presets,
   selectedPresetId,
   onSelectPreset,
-  onOpenHistory,
   onReset,
-  historyCount
 }) => {
   return (
     <header className="border-b border-slate-200/80 bg-white/90 backdrop-blur-xl sticky top-0 z-40 relative shadow-[0_4px_20px_-4px_rgba(99,102,241,0.08)]">
@@ -105,20 +100,6 @@ export const Header: React.FC<HeaderProps> = ({
             className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-all border border-slate-200/70 hover:border-slate-300 active:scale-95 bg-white shadow-xs"
           >
             <RotateCcw className="h-4 w-4" />
-          </button>
-
-          {/* History Drawer Trigger */}
-          <button
-            onClick={onOpenHistory}
-            className="flex items-center space-x-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 hover:border-indigo-300 rounded-xl text-xs font-semibold text-slate-700 transition-all shadow-xs hover:shadow-sm active:scale-95"
-          >
-            <History className="h-4 w-4 text-indigo-600" />
-            <span className="hidden sm:inline">History</span>
-            {historyCount > 0 && (
-              <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                {historyCount}
-              </span>
-            )}
           </button>
 
           {/* Engine Status Badge */}
