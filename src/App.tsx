@@ -245,6 +245,8 @@ export const App: React.FC = () => {
             onUpdateSlot={handleUpdateSlot}
             onAddSlot={handleAddSlot}
             onRemoveSlot={handleRemoveSlot}
+            onCompile={() => executeCompilation(slots, currentMode)}
+            isCompiling={isCompiling}
           />
 
           {/* Right: Master Prompt View */}

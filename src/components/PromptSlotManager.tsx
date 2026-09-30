@@ -6,7 +6,8 @@ import {
   Columns, 
   Copy, 
   Check,
-  X
+  X,
+  Sparkles
 } from 'lucide-react';
 import { PromptSlot, PlatformId } from '../types';
 import { estimateTokens } from '../engine/compiler';
@@ -16,6 +17,8 @@ interface PromptSlotManagerProps {
   onUpdateSlot: (id: string, updates: Partial<PromptSlot>) => void;
   onAddSlot: () => void;
   onRemoveSlot: (id: string) => void;
+  onCompile?: () => void;
+  isCompiling?: boolean;
 }
 
 // VIBGYOR aligned platform color themes
@@ -75,7 +78,9 @@ export const PromptSlotManager: React.FC<PromptSlotManagerProps> = ({
   slots,
   onUpdateSlot,
   onAddSlot,
-  onRemoveSlot
+  onRemoveSlot,
+  onCompile,
+  isCompiling = false
 }) => {
   const [activeSlotId, setActiveSlotId] = useState<string>(slots[0]?.id || '');
   const [viewMode, setViewMode] = useState<'tabs' | 'grid'>('tabs');
@@ -115,7 +120,7 @@ export const PromptSlotManager: React.FC<PromptSlotManagerProps> = ({
           </h2>
         </div>
 
-        {/* View switcher & Add slot */}
+        {/* View switcher, Add slot, and Synthesize Now */}
         <div className="flex items-center space-x-2">
           <div className="flex items-center bg-white border border-slate-200 rounded-xl p-0.5 shadow-2xs">
             <button
@@ -139,11 +144,24 @@ export const PromptSlotManager: React.FC<PromptSlotManagerProps> = ({
 
           <button
             onClick={onAddSlot}
-            className="btn-vibgyor-animated flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl text-xs font-mono font-bold shadow-sm"
+            className="flex items-center space-x-1 px-3 py-1.5 rounded-xl text-xs font-mono font-semibold text-slate-700 bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 shadow-2xs transition-all active:scale-95"
+            title="Add a new custom model slot"
           >
             <Plus className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Add Slot</span>
           </button>
+
+          {onCompile && (
+            <button
+              onClick={onCompile}
+              disabled={isCompiling}
+              className="btn-vibgyor-animated flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl text-xs font-mono font-bold shadow-sm"
+              title="Synthesize and optimize all prompts"
+            >
+              <Sparkles className={`h-3.5 w-3.5 ${isCompiling ? 'animate-spin' : ''}`} />
+              <span>{isCompiling ? 'Synthesizing...' : 'Synthesize Now'}</span>
+            </button>
+          )}
         </div>
       </div>
 
