@@ -2,11 +2,11 @@ import React, { useState } from 'react';
 import { 
   Bot, 
   Plus, 
-  Trash2, 
   Power, 
   Columns, 
   Copy, 
-  Check
+  Check,
+  X
 } from 'lucide-react';
 import { PromptSlot, PlatformId } from '../types';
 import { estimateTokens } from '../engine/compiler';
@@ -156,10 +156,10 @@ export const PromptSlotManager: React.FC<PromptSlotManagerProps> = ({
             const tokenCount = estimateTokens(slot.prompt);
 
             return (
-              <button
+              <div
                 key={slot.id}
                 onClick={() => setActiveSlotId(slot.id)}
-                className={`flex items-center space-x-2 px-3.5 py-2 rounded-t-xl text-xs font-mono transition-all border-t-2 ${
+                className={`group flex items-center space-x-1.5 px-3 py-2 rounded-t-xl text-xs font-mono transition-all border-t-2 cursor-pointer ${
                   isCurrent
                     ? 'bg-white border-x border-slate-200 text-slate-900 font-bold shadow-xs'
                     : 'bg-transparent border-t-transparent border-x-transparent text-slate-500 hover:text-slate-800 hover:bg-white/80'
@@ -169,14 +169,37 @@ export const PromptSlotManager: React.FC<PromptSlotManagerProps> = ({
                 }}
               >
                 <span
-                  className="h-2.5 w-2.5 rounded-full shadow-xs"
+                  className="h-2.5 w-2.5 rounded-full shadow-xs shrink-0"
                   style={{ backgroundColor: theme.color }}
                 />
-                <span>{slot.name}</span>
+                <span className="truncate max-w-[120px]">{slot.name}</span>
                 <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200">
                   {tokenCount}t
                 </span>
-              </button>
+                {slots.length > 1 ? (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRemoveSlot(slot.id);
+                    }}
+                    className="p-0.5 rounded hover:bg-rose-100 hover:text-rose-600 text-slate-400 opacity-60 group-hover:opacity-100 transition-all ml-0.5"
+                    title={`Remove ${slot.name} (x)`}
+                    aria-label={`Remove ${slot.name}`}
+                  >
+                    <X className="h-3 w-3 stroke-[2.5]" />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    disabled
+                    className="p-0.5 rounded text-slate-300 opacity-30 cursor-not-allowed ml-0.5"
+                    title="Cannot remove the only model"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
             );
           })}
         </div>
@@ -235,10 +258,11 @@ export const PromptSlotManager: React.FC<PromptSlotManagerProps> = ({
                 {slots.length > 1 && (
                   <button
                     onClick={() => onRemoveSlot(activeSlot.id)}
-                    className="p-1.5 text-slate-400 hover:text-rose-600 bg-white border border-slate-200 hover:border-rose-300 rounded-xl transition-all shadow-xs active:scale-95"
-                    title="Delete slot"
+                    className="flex items-center space-x-1 px-2 py-1 text-slate-400 hover:text-rose-600 bg-white border border-slate-200 hover:border-rose-300 rounded-xl transition-all shadow-xs active:scale-95 text-xs font-mono"
+                    title={`Remove ${activeSlot.name} (x)`}
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
+                    <X className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Remove</span>
                   </button>
                 )}
               </div>
@@ -279,24 +303,46 @@ export const PromptSlotManager: React.FC<PromptSlotManagerProps> = ({
                     className="h-[2.5px] w-full"
                     style={{ backgroundColor: theme.color }}
                   />
+                  {/* Card Header with Name, Tokens, Power, and (X) Remove Button */}
                   <div className="p-2.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: theme.color }} />
-                      <span className="text-xs font-bold text-slate-800">{slot.name}</span>
+                    <div className="flex items-center space-x-2 truncate pr-1">
+                      <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: theme.color }} />
+                      <span className="text-xs font-bold text-slate-800 truncate">{slot.name}</span>
                     </div>
-                    <div className="flex items-center space-x-1.5">
+                    <div className="flex items-center space-x-1 shrink-0">
                       <span className="text-[10px] font-mono text-slate-600 bg-slate-200/70 px-1.5 py-0.5 rounded-md">
                         {tokenCount}t
                       </span>
                       <button
                         onClick={() => onUpdateSlot(slot.id, { enabled: !slot.enabled })}
-                        className={`p-1 rounded text-xs ${
+                        className={`p-1 rounded text-xs hover:bg-slate-200/50 transition-colors ${
                           slot.enabled ? 'text-emerald-600' : 'text-slate-400'
                         }`}
-                        title="Toggle slot"
+                        title={slot.enabled ? 'Disable slot' : 'Enable slot'}
                       >
-                        <Power className="h-3 w-3" />
+                        <Power className="h-3.5 w-3.5" />
                       </button>
+                      {slots.length > 1 ? (
+                        <button
+                          type="button"
+                          onClick={() => onRemoveSlot(slot.id)}
+                          className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-all active:scale-95 ml-0.5"
+                          title={`Remove ${slot.name} (x)`}
+                          aria-label={`Remove ${slot.name}`}
+                        >
+                          <X className="h-3.5 w-3.5 stroke-[2.5]" />
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled
+                          className="p-1 rounded text-slate-300 opacity-40 cursor-not-allowed ml-0.5"
+                          title="Cannot remove the only model"
+                          aria-label="Cannot remove model"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                     </div>
                   </div>
                   <textarea
