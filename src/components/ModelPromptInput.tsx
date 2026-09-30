@@ -177,6 +177,18 @@ export const ModelPromptInput: React.FC<ModelPromptInputProps> = ({
 }) => {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [filterModel, setFilterModel] = useState<string>('all');
+  const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
+  const addMenuRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (addMenuRef.current && !addMenuRef.current.contains(event.target as Node)) {
+        setIsAddMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleCopySlot = (id: string, text: string) => {
     navigator.clipboard.writeText(text);
@@ -242,33 +254,54 @@ export const ModelPromptInput: React.FC<ModelPromptInputProps> = ({
             </button>
 
             {availableToAdd.length > 0 && (
-              <div className="relative group/add">
+              <div ref={addMenuRef} className="relative">
                 <button
-                  className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl transition-all active:scale-95 shadow-2xs"
+                  type="button"
+                  onClick={() => setIsAddMenuOpen(prev => !prev)}
+                  className={`flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold rounded-xl transition-all active:scale-95 shadow-2xs border ${
+                    isAddMenuOpen
+                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                      : 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border-emerald-200'
+                  }`}
                 >
                   <Plus className="h-3.5 w-3.5" />
                   <span>Add Box</span>
+                  <ChevronDown className={`h-3 w-3 transition-transform duration-200 ${isAddMenuOpen ? 'rotate-180' : ''}`} />
                 </button>
-                <div className="absolute right-0 top-full mt-1.5 w-52 bg-white border border-slate-200 rounded-xl shadow-xl p-1.5 hidden group-hover/add:block z-40">
-                  <div className="text-[10px] font-mono font-bold text-slate-400 px-2 py-1 uppercase">
-                    Add Model Box:
+
+                {isAddMenuOpen && (
+                  <div className="absolute right-0 top-full pt-1.5 w-56 z-50">
+                    <div className="bg-white border border-slate-200 rounded-2xl shadow-xl p-2 animate-in fade-in zoom-in-95 duration-150">
+                      <div className="text-[10px] font-mono font-bold text-slate-400 px-2 py-1 uppercase tracking-wider">
+                        Add Model Box:
+                      </div>
+                      <div className="space-y-0.5 mt-1">
+                        {availableToAdd.map(cfg => (
+                          <button
+                            key={cfg.id}
+                            type="button"
+                            onClick={() => {
+                              onAddSlot(cfg.id);
+                              setIsAddMenuOpen(false);
+                            }}
+                            className="w-full text-left px-2.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 rounded-xl flex items-center space-x-2.5 transition-colors cursor-pointer"
+                          >
+                            <span 
+                              className="w-5 h-5 rounded-lg flex items-center justify-center text-[10px] font-bold text-white shrink-0 shadow-2xs"
+                              style={{ backgroundColor: cfg.themeColor }}
+                            >
+                              {cfg.iconLetter}
+                            </span>
+                            <div className="flex flex-col truncate">
+                              <span className="font-bold text-slate-800 leading-tight">{cfg.name}</span>
+                              <span className="text-[10px] text-slate-400 font-mono">{cfg.provider}</span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
-                  {availableToAdd.map(cfg => (
-                    <button
-                      key={cfg.id}
-                      onClick={() => onAddSlot(cfg.id)}
-                      className="w-full text-left px-2.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 rounded-lg flex items-center space-x-2 transition-colors"
-                    >
-                      <span 
-                        className="w-4 h-4 rounded flex items-center justify-center text-[10px] font-bold text-white shrink-0 shadow-2xs"
-                        style={{ backgroundColor: cfg.themeColor }}
-                      >
-                        {cfg.iconLetter}
-                      </span>
-                      <span className="truncate">{cfg.name}</span>
-                    </button>
-                  ))}
-                </div>
+                )}
               </div>
             )}
           </div>
