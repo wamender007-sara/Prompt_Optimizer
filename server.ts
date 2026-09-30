@@ -159,16 +159,20 @@ app.post('/api/auth/send-otp', async (req: Request, res: Response) => {
 
     otpStore[cleanEmail] = { otp: generatedOtp, expiresAt };
 
-    // Dispatch real email via Gmail SMTP
-    await sendOtpEmail(cleanEmail, generatedOtp);
+    // Dispatch real email via Gmail SMTP (in background so HTTP response never hangs or times out)
+    sendOtpEmail(cleanEmail, generatedOtp).catch(err => {
+      console.error('[AUTH] Background email send error:', err?.message || err);
+    });
 
-    // CRITICAL: NEVER return the OTP code or preview to the frontend!
-    return res.json({
+    // CRITICAL: Return clean JSON immediately
+    res.setHeader('Content-Type', 'application/json');
+    return res.status(200).json({
       success: true,
       message: `A 6-digit OTP verification code has been dispatched to ${cleanEmail}. Please check your Gmail inbox.`,
       expiresInSeconds: 600
     });
   } catch (err: any) {
+    res.setHeader('Content-Type', 'application/json');
     return res.status(500).json({ error: err?.message || 'Failed to send OTP.' });
   }
 });

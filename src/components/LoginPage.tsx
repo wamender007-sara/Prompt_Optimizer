@@ -78,6 +78,61 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
     }, 300);
   };
 
+  // Robust API caller with safe JSON parsing and port-fallback to prevent "Unexpected end of JSON input"
+  const callAuthApi = async (endpoint: string, payload: any) => {
+    let res: Response | null = null;
+    let rawText = '';
+
+    // Determine target URL: relative works when on port 3001 or behind Vite proxy
+    const urlsToTry = [
+      endpoint,
+      `http://localhost:3001${endpoint}`
+    ];
+
+    let lastError: any = null;
+
+    for (const url of urlsToTry) {
+      try {
+        res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
+
+        rawText = await res.text();
+        
+        // If we received a response with body, proceed
+        if (res.ok || (rawText && rawText.trim().length > 0)) {
+          break;
+        }
+      } catch (err: any) {
+        lastError = err;
+      }
+    }
+
+    if (!res && lastError) {
+      throw new Error('Could not connect to PromptOptimizer server. Please verify the backend is active.');
+    }
+
+    let parsedData: any = {};
+    if (rawText && rawText.trim().length > 0) {
+      try {
+        parsedData = JSON.parse(rawText);
+      } catch {
+        parsedData = { error: rawText.length < 150 ? rawText : 'Server returned an invalid response format.' };
+      }
+    }
+
+    if (res && !res.ok) {
+      throw new Error(parsedData?.error || parsedData?.message || `Server responded with error status ${res.status}`);
+    }
+
+    return parsedData;
+  };
+
   // Step 1: Send OTP to registered Gmail (never displayed on screen)
   const handleSendOtp = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -91,17 +146,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
 
     setIsLoading(true);
     try {
-      const res = await fetch('/api/auth/send-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: targetEmail })
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to dispatch OTP to Gmail.');
-      }
-
+      await callAuthApi('/api/auth/send-otp', { email: targetEmail });
       setResendCountdown(60);
       setOtpDigits(['', '', '', '', '', '']);
       setMode('enter_otp');
@@ -169,20 +214,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
 
     setIsLoading(true);
     try {
-      const res = await fetch('/api/auth/verify-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: resetEmail.trim().toLowerCase(),
-          otp: enteredOtp,
-          newPassword
-        })
+      await callAuthApi('/api/auth/verify-otp', {
+        email: resetEmail.trim().toLowerCase(),
+        otp: enteredOtp,
+        newPassword
       });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Invalid OTP code.');
-      }
 
       setMode('reset_success');
       setTimeout(() => {
