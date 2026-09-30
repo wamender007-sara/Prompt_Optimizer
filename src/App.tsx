@@ -218,12 +218,22 @@ export const App: React.FC = () => {
     });
   };
 
+  const VIBGYOR_TAG_CLASSES = [
+    'badge-vibgyor-v', // Violet
+    'badge-vibgyor-i', // Indigo
+    'badge-vibgyor-b', // Blue
+    'badge-vibgyor-g', // Green
+    'badge-vibgyor-y', // Yellow
+    'badge-vibgyor-o', // Orange
+    'badge-vibgyor-r', // Red
+  ];
+
   return (
-    <div className="min-h-screen bg-[#FAFAFE] text-slate-800 flex flex-col font-sans relative overflow-x-hidden aurora-dots">
-      {/* Floating Ambient Animated Aurora Blobs */}
-      <div className="aurora-blob-1 -top-24 -left-24" />
-      <div className="aurora-blob-2 top-80 -right-32" />
-      <div className="aurora-blob-3 -bottom-24 left-1/4" />
+    <div className="min-h-screen bg-white text-slate-800 flex flex-col font-sans relative overflow-x-hidden white-aurora-dots">
+      {/* Floating Ambient Animated VIBGYOR Spectral Aurora Blobs on Pure White */}
+      <div className="vibgyor-ambient-vi -top-24 -left-24" />
+      <div className="vibgyor-ambient-bg top-80 -right-32" />
+      <div className="vibgyor-ambient-yor -bottom-24 left-1/4" />
 
       {/* Navigation Header */}
       <Header
@@ -239,10 +249,13 @@ export const App: React.FC = () => {
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 relative z-10">
         
         {/* Preset Description Banner */}
-        <div className="prism-glass rounded-2xl p-5 border border-white/80 shadow-lg shadow-purple-500/5 backdrop-blur-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-all duration-300 hover:shadow-xl hover:shadow-purple-500/10">
+        <div className="white-glass-card rounded-2xl p-5 border border-slate-200 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-all duration-300 hover:shadow-md relative overflow-hidden">
+          {/* Subtle animated rainbow accent stripe */}
+          <div className="absolute top-0 left-0 right-0 h-[3px] vibgyor-ribbon" />
+
           <div>
             <div className="flex items-center space-x-2.5">
-              <span className="font-mono text-[10px] text-purple-700 font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-purple-100/80 border border-purple-200">
+              <span className="font-mono text-[10px] text-indigo-700 font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-indigo-50 border border-indigo-200">
                 ACTIVE PRESET
               </span>
               <h2 className="text-base font-extrabold text-slate-900 tracking-tight">
@@ -255,7 +268,12 @@ export const App: React.FC = () => {
           </div>
           <div className="flex flex-wrap gap-1.5 shrink-0">
             {PRESET_SCENARIOS.find(p => p.id === selectedPresetId)?.tags.map((tag, idx) => (
-              <span key={idx} className="text-[10px] font-mono font-semibold px-2.5 py-1 rounded-full bg-slate-100/90 text-slate-700 border border-slate-200/80 shadow-sm hover:bg-white hover:text-purple-700 transition-colors">
+              <span 
+                key={idx} 
+                className={`text-[10px] font-mono font-bold px-2.5 py-1 rounded-full border shadow-2xs transition-transform hover:scale-105 ${
+                  VIBGYOR_TAG_CLASSES[idx % VIBGYOR_TAG_CLASSES.length]
+                }`}
+              >
                 #{tag}
               </span>
             ))}
@@ -313,8 +331,20 @@ export const App: React.FC = () => {
       />
 
       {/* Footer */}
-      <footer className="border-t border-slate-200/70 bg-white/60 backdrop-blur-md py-4 text-center text-xs text-slate-500 relative z-10">
-        <p className="font-medium">PromptOptimizer — Luminescent Aurora Frost & Multi-Platform Prompt Synthesizer</p>
+      <footer className="border-t border-slate-200/80 bg-white/90 backdrop-blur-md py-4 text-center text-xs text-slate-500 relative z-10">
+        <p className="font-semibold text-slate-700">
+          PromptOptimizer — White Canvas with Animated VIBGYOR Spectrum Design
+        </p>
+        <div className="flex items-center justify-center space-x-1.5 mt-1.5">
+          <span className="w-2.5 h-2.5 rounded-full dot-v" style={{ backgroundColor: '#8B5CF6' }} title="Violet" />
+          <span className="w-2.5 h-2.5 rounded-full dot-i" style={{ backgroundColor: '#6366F1' }} title="Indigo" />
+          <span className="w-2.5 h-2.5 rounded-full dot-b" style={{ backgroundColor: '#3B82F6' }} title="Blue" />
+          <span className="w-2.5 h-2.5 rounded-full dot-g" style={{ backgroundColor: '#10B981' }} title="Green" />
+          <span className="w-2.5 h-2.5 rounded-full dot-y" style={{ backgroundColor: '#EAB308' }} title="Yellow" />
+          <span className="w-2.5 h-2.5 rounded-full dot-o" style={{ backgroundColor: '#F97316' }} title="Orange" />
+          <span className="w-2.5 h-2.5 rounded-full dot-r" style={{ backgroundColor: '#EF4444' }} title="Red" />
+          <span className="text-[10px] font-mono text-slate-400 ml-1 font-semibold">VIBGYOR ANIMATED ENGINE</span>
+        </div>
       </footer>
     </div>
   );

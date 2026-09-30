@@ -48,12 +48,17 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
       {/* Drawer Panel */}
       <div className="relative w-full max-w-md bg-white border-l border-slate-200 text-slate-800 flex flex-col h-full shadow-2xl z-10">
         
+        {/* Top Animated VIBGYOR Rainbow Ribbon */}
+        <div className="h-[4px] w-full vibgyor-ribbon" />
+
         {/* Header */}
-        <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+        <div className="p-4 bg-slate-50/90 border-b border-slate-200 flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <History className="h-5 w-5 text-purple-600" />
+            <div className="p-1.5 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-600">
+              <History className="h-4 w-4" />
+            </div>
             <h2 className="font-bold text-sm text-slate-900">Synthesis History</h2>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-mono font-bold">
+            <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-mono font-bold">
               {history.length}
             </span>
           </div>
@@ -91,14 +96,14 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
             history.map((item) => (
               <div
                 key={item.id}
-                className="p-3.5 rounded-xl bg-white border border-slate-200 hover:border-purple-300 shadow-sm hover:shadow transition-all flex flex-col space-y-2.5"
+                className="p-3.5 rounded-xl bg-white border border-slate-200 hover:border-indigo-300 shadow-xs hover:shadow transition-all flex flex-col space-y-2.5"
               >
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-mono text-slate-500 text-[11px]">
                     {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                   </span>
                   <div className="flex items-center space-x-1.5">
-                    <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
                       {item.mode.replace('target_', '')}
                     </span>
                     <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center space-x-0.5">
@@ -119,7 +124,7 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
                 <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
                   <button
                     onClick={() => onRestore(item)}
-                    className="flex items-center space-x-1 text-xs font-semibold text-purple-700 hover:text-purple-800 px-2.5 py-1 rounded-lg bg-purple-50 hover:bg-purple-100 transition-colors"
+                    className="flex items-center space-x-1 text-xs font-semibold text-indigo-700 hover:text-indigo-800 px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 transition-colors"
                   >
                     <RotateCcw className="h-3 w-3" />
                     <span>Restore</span>
