@@ -344,9 +344,8 @@ export const App: React.FC = () => {
           onLoadExample={handleLoadExample}
         />
 
-        {/* Core Split: Separate Model Boxes (Left) & Result View (Right) */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-[580px]">
-          {/* Left: Separate input boxes for each model */}
+        {/* Top Main: Input of Models at the Top (Separate boxes for each model) */}
+        <section aria-label="Model Inputs" className="w-full">
           <ModelPromptInput
             slots={slots}
             selectedMode={selectedMode}
@@ -364,8 +363,10 @@ export const App: React.FC = () => {
             onFillAllSamples={handleFillAllSamples}
             onClearAllSlots={handleClearAllSlots}
           />
+        </section>
 
-          {/* Right: Result Part */}
+        {/* Bottom Main: Optimized Prompt at the Bottom with Bottom Designed Analysis */}
+        <section aria-label="Optimized Result & Analysis" className="w-full">
           <OptimizedResultView
             synthesis={synthesis}
             originalPrompt={originalPromptCombined}
@@ -376,7 +377,7 @@ export const App: React.FC = () => {
               executeCompilation(slots, selectedMode, true);
             }}
           />
-        </div>
+        </section>
 
       </main>
 
