@@ -1,71 +1,163 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Header } from './components/Header';
-import { PromptSlotManager } from './components/PromptSlotManager';
-import { ModeSelector } from './components/ModeSelector';
-import { MasterPromptView } from './components/MasterPromptView';
-import { AnalyticsDashboard } from './components/AnalyticsDashboard';
-import { TestDrivePanel } from './components/TestDrivePanel';
-import { PRESET_SCENARIOS } from './data/presets';
-import { PromptSlot, CompressionMode, SynthesisResult } from './types';
-import { compilePrompts, generateMasterPrompt, estimateTokens } from './engine/compiler';
+import { PromptHistory, HistoryItem } from './components/PromptHistory';
+import { ModelPromptInput, AVAILABLE_MODELS } from './components/ModelPromptInput';
+import { OptimizedResultView } from './components/OptimizedResultView';
+import { PlatformId, CompressionMode, SynthesisResult, PromptSlot } from './types';
+import { compilePrompts } from './engine/compiler';
+
+const STORAGE_KEY = 'prompt_optimizer_history_v2';
+
+// Initial realistic default prompts
+const DEFAULT_INITIAL_PROMPT = `Act as a world-renowned Senior Software Architect with 20+ years of experience.
+I need you to thoroughly examine my code. Please make sure to point out any code smells, eliminate all vulnerabilities, and make it look clean and modern.
+Follow SOLID principles and please explain every single step kindly as if I am learning. Also feel free to add nice greetings and have fun with it!`;
+
+// Initial sample past history so the user sees a rich UI on initial load
+const INITIAL_SAMPLE_HISTORY: HistoryItem[] = [
+  {
+    id: 'sample-hist-1',
+    timestamp: Date.now() - 1000 * 60 * 15,
+    timeAgo: '15m ago',
+    model: 'claude',
+    modelName: 'Claude 3.5 Sonnet',
+    mode: 'production_balanced',
+    inputPrompt: `Act as a senior engineer. Please examine this TypeScript code, eliminate any usage of any, ensure immutable data structures, and check for async memory leaks. Do not add polite pleasantries.`,
+    optimizedPrompt: `1. Enforce strict typing: replace all 'any' with discriminated unions or generics with guards.\n2. Mandate immutability across all data structures using Readonly<T>.\n3. Audit async workflows for unhandled rejections and EventEmitter leaks.\n4. Output vulnerability risk table and refactored zero-defect codebase.`,
+    originalTokens: 46,
+    optimizedTokens: 25,
+    reductionPercentage: 46,
+    coreIntent: 'Strict TypeScript immutability and memory leak audit'
+  },
+  {
+    id: 'sample-hist-2',
+    timestamp: Date.now() - 1000 * 60 * 65,
+    timeAgo: '1h ago',
+    model: 'gemini',
+    modelName: 'Gemini 2.0 / 1.5 Pro',
+    mode: 'ultra_distilled',
+    inputPrompt: `You are an expert Google engineer. Can you please analyze my Node.js microservice architecture for CPU spikes, V8 de-optimizations, and GC pressure? Please provide circuit breaker patterns and latency diffs.`,
+    optimizedPrompt: `Analyze Node.js microservice: profile V8 inline cache de-optimizations, GC heap pressure, and CPU hot loops. Implement circuit breaker with exponential jitter. Provide Before/After latency matrix.`,
+    originalTokens: 42,
+    optimizedTokens: 22,
+    reductionPercentage: 48,
+    coreIntent: 'V8 engine latency optimization and circuit breaker pattern'
+  }
+];
 
 export const App: React.FC = () => {
-  const initialPreset = PRESET_SCENARIOS[0];
+  // State: Model, Mode, Prompt
+  const [selectedModel, setSelectedModel] = useState<PlatformId>('chatgpt');
+  const [selectedMode, setSelectedMode] = useState<CompressionMode>('production_balanced');
+  const [promptText, setPromptText] = useState<string>(DEFAULT_INITIAL_PROMPT);
 
-  // Clean wipe any legacy history from browser storage for a fresh webpage experience
-  useEffect(() => {
-    try {
-      localStorage.removeItem('prompt_optimizer_history_v1');
-    } catch {
-      // ignore
-    }
-  }, []);
-
-  // State: Slots
-  const [slots, setSlots] = useState<PromptSlot[]>(
-    initialPreset.slots.map((s, idx) => ({
-      id: `slot-${idx + 1}`,
-      platform: s.platform,
-      name: s.name,
-      prompt: s.prompt,
-      enabled: true,
-    }))
-  );
-
-  // State: Preset selection
-  const [selectedPresetId, setSelectedPresetId] = useState<string>(initialPreset.id);
-  const [currentPayload, setCurrentPayload] = useState(initialPreset.samplePayload);
-
-  // State: Compression Mode
-  const [currentMode, setCurrentMode] = useState<CompressionMode>('production_balanced');
-
-  // State: Synthesis Output
+  // State: Synthesis Output & Compiling status
   const [synthesis, setSynthesis] = useState<SynthesisResult | null>(null);
   const [isCompiling, setIsCompiling] = useState<boolean>(false);
 
-  // Compile Handler (Server-first with client fallback)
-  const executeCompilation = useCallback(async (activeSlots: PromptSlot[], mode: CompressionMode) => {
-    setIsCompiling(true);
+  // State: Past History
+  const [history, setHistory] = useState<HistoryItem[]>(() => {
     try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch {
+      // Fallback
+    }
+    return INITIAL_SAMPLE_HISTORY;
+  });
+
+  // Save history to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+    } catch {
+      // Ignore storage errors
+    }
+  }, [history]);
+
+  // Execute compilation
+  const executeCompilation = useCallback(async (
+    textToCompile: string,
+    model: PlatformId,
+    mode: CompressionMode,
+    addToHistory: boolean = true
+  ) => {
+    if (!textToCompile.trim()) return;
+
+    setIsCompiling(true);
+    const activeSlot: PromptSlot = {
+      id: `slot-${model}`,
+      platform: model,
+      name: AVAILABLE_MODELS.find(m => m.id === model)?.name || model,
+      prompt: textToCompile,
+      enabled: true,
+    };
+
+    try {
+      let result: SynthesisResult;
       const res = await fetch('/api/analyze-and-compile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slots: activeSlots, mode })
+        body: JSON.stringify({ slots: [activeSlot], mode })
       });
 
-      let result: SynthesisResult;
       if (res.ok) {
         result = await res.json();
       } else {
-        result = compilePrompts(activeSlots, mode);
+        result = compilePrompts([activeSlot], mode);
       }
 
       setSynthesis(result);
 
+      // Add to past history if requested
+      if (addToHistory && result && result.masterPrompt) {
+        const modelMeta = AVAILABLE_MODELS.find(m => m.id === model);
+        const newHistItem: HistoryItem = {
+          id: `hist-${Date.now()}`,
+          timestamp: Date.now(),
+          timeAgo: 'Just now',
+          model: model,
+          modelName: modelMeta?.name || model,
+          mode: mode,
+          inputPrompt: textToCompile,
+          optimizedPrompt: result.masterPrompt,
+          originalTokens: result.metrics.originalTotalTokens,
+          optimizedTokens: result.metrics.compressedTokens,
+          reductionPercentage: result.metrics.reductionPercentage,
+          coreIntent: result.coreIntent || 'Prompt optimization'
+        };
+
+        setHistory(prev => [newHistItem, ...prev.filter(h => h.id !== newHistItem.id)].slice(0, 15));
+      }
     } catch (err) {
-      console.warn('Using client-side compiler fallback:', err);
-      const fallback = compilePrompts(activeSlots, mode);
+      console.warn('Fallback to client compilation:', err);
+      const fallback = compilePrompts([activeSlot], mode);
       setSynthesis(fallback);
+
+      if (addToHistory && fallback && fallback.masterPrompt) {
+        const modelMeta = AVAILABLE_MODELS.find(m => m.id === model);
+        const newHistItem: HistoryItem = {
+          id: `hist-${Date.now()}`,
+          timestamp: Date.now(),
+          timeAgo: 'Just now',
+          model: model,
+          modelName: modelMeta?.name || model,
+          mode: mode,
+          inputPrompt: textToCompile,
+          optimizedPrompt: fallback.masterPrompt,
+          originalTokens: fallback.metrics.originalTotalTokens,
+          optimizedTokens: fallback.metrics.compressedTokens,
+          reductionPercentage: fallback.metrics.reductionPercentage,
+          coreIntent: fallback.coreIntent || 'Prompt optimization'
+        };
+
+        setHistory(prev => [newHistItem, ...prev.filter(h => h.id !== newHistItem.id)].slice(0, 15));
+      }
     } finally {
       setIsCompiling(false);
     }
@@ -73,220 +165,128 @@ export const App: React.FC = () => {
 
   // Initial compilation on mount
   useEffect(() => {
-    executeCompilation(slots, currentMode);
+    executeCompilation(promptText, selectedModel, selectedMode, false);
   }, []);
 
-  // Preset Selection Handler
-  const handleSelectPreset = (presetId: string) => {
-    const preset = PRESET_SCENARIOS.find(p => p.id === presetId);
-    if (!preset) return;
-
-    setSelectedPresetId(preset.id);
-    setCurrentPayload(preset.samplePayload);
-
-    const newSlots: PromptSlot[] = preset.slots.map((s, idx) => ({
-      id: `slot-${idx + 1}`,
-      platform: s.platform,
-      name: s.name,
-      prompt: s.prompt,
-      enabled: true,
-    }));
-
-    setSlots(newSlots);
-    executeCompilation(newSlots, currentMode);
+  // Select item from history
+  const handleSelectHistory = (item: HistoryItem) => {
+    setSelectedModel(item.model);
+    setSelectedMode(item.mode);
+    setPromptText(item.inputPrompt);
+    // Directly recompile or load saved synthesis
+    executeCompilation(item.inputPrompt, item.model, item.mode, false);
   };
 
-  // Mode Selection Handler
-  const handleSelectMode = (mode: CompressionMode) => {
-    setCurrentMode(mode);
-    executeCompilation(slots, mode);
+  // Delete item from history
+  const handleDeleteHistory = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setHistory(prev => prev.filter(item => item.id !== id));
   };
 
-  // Update Slot
-  const handleUpdateSlot = (id: string, updates: Partial<PromptSlot>) => {
-    setSlots(prev => {
-      const next = prev.map(s => s.id === id ? { ...s, ...updates } : s);
-      if ('enabled' in updates) {
-        executeCompilation(next, currentMode);
-      }
-      return next;
-    });
+  // Clear all history
+  const handleClearHistory = () => {
+    setHistory([]);
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      // ignore
+    }
   };
 
-  // Add Custom Slot
-  const handleAddSlot = () => {
-    const newId = `slot-custom-${Date.now()}`;
-    const newSlot: PromptSlot = {
-      id: newId,
-      platform: 'custom',
-      name: `Custom Slot ${slots.length + 1}`,
-      prompt: '',
-      enabled: true,
-    };
-    setSlots(prev => [...prev, newSlot]);
-  };
-
-  // Remove Slot
-  const handleRemoveSlot = (id: string) => {
-    if (slots.length <= 1) return;
-    const next = slots.filter(s => s.id !== id);
-    setSlots(next);
-    executeCompilation(next, currentMode);
-  };
-
-  // Toggle Preserved Directive in Master Prompt
-  const handleToggleDirective = (directiveId: string) => {
-    if (!synthesis) return;
-    const updatedDirectives = synthesis.preservedDirectives.map(d =>
-      d.id === directiveId ? { ...d, retained: d.retained === false } : d
-    );
-    const updatedMasterPrompt = generateMasterPrompt(
-      currentMode,
-      synthesis.coreIntent,
-      updatedDirectives,
-      synthesis.conflictMatrix,
-      slots
-    );
-    const compressedChars = updatedMasterPrompt.length;
-    const compressedTokens = estimateTokens(updatedMasterPrompt);
-    const reductionPercentage = synthesis.metrics.originalTotalTokens > 0
-      ? Math.max(0, Math.round(((synthesis.metrics.originalTotalTokens - compressedTokens) / synthesis.metrics.originalTotalTokens) * 100))
-      : 0;
-
-    setSynthesis({
-      ...synthesis,
-      masterPrompt: updatedMasterPrompt,
-      preservedDirectives: updatedDirectives,
-      metrics: {
-        ...synthesis.metrics,
-        compressedTokens,
-        compressedChars,
-        reductionPercentage
-      }
-    });
-  };
-
-  // Reset to default
+  // Reset to clean fresh prompt
   const handleReset = () => {
-    handleSelectPreset(PRESET_SCENARIOS[0].id);
+    setSelectedModel('chatgpt');
+    setSelectedMode('production_balanced');
+    setPromptText('');
+    setSynthesis(null);
   };
 
-  const VIBGYOR_TAG_CLASSES = [
-    'badge-vibgyor-v', // Violet
-    'badge-vibgyor-i', // Indigo
-    'badge-vibgyor-b', // Blue
-    'badge-vibgyor-g', // Green
-    'badge-vibgyor-y', // Yellow
-    'badge-vibgyor-o', // Orange
-    'badge-vibgyor-r', // Red
-  ];
+  // Load quick examples into input
+  const handleLoadExample = (exampleId: string) => {
+    if (exampleId === 'example-code') {
+      const codePrompt = `Act as an expert software engineer. Review my TypeScript functions for code smells, eliminate all any types, replace them with strict generics, and format everything cleanly. Please explain nicely.`;
+      setSelectedModel('claude');
+      setPromptText(codePrompt);
+      executeCompilation(codePrompt, 'claude', selectedMode, true);
+    } else if (exampleId === 'example-security') {
+      const secPrompt = `You are a high-level application security architect. Thoroughly audit this backend code for OWASP Top 10 vulnerabilities like SQL injection, CSRF, and prototype pollution.`;
+      setSelectedModel('chatgpt');
+      setPromptText(secPrompt);
+      executeCompilation(secPrompt, 'chatgpt', selectedMode, true);
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-white text-slate-800 flex flex-col font-sans relative overflow-x-hidden white-aurora-dots">
-      {/* Floating Ambient Animated VIBGYOR Spectral Aurora Blobs on Pure White */}
-      <div className="vibgyor-ambient-vi -top-24 -left-24" />
-      <div className="vibgyor-ambient-bg top-80 -right-32" />
-      <div className="vibgyor-ambient-yor -bottom-24 left-1/4" />
+    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans relative overflow-x-hidden mesh-dot-grid selection:bg-indigo-500/20 selection:text-indigo-900">
+      {/* 3D Ambient Flowing Animated Aurora Blobs */}
+      <div className="aurora-blob-1 -top-24 -left-28" />
+      <div className="aurora-blob-2 top-80 -right-36" />
+      <div className="aurora-blob-3 -bottom-28 left-1/4" />
 
-      {/* Navigation Header (Fresh, without history) */}
+      {/* Modern 3D Header */}
       <Header
-        presets={PRESET_SCENARIOS}
-        selectedPresetId={selectedPresetId}
-        onSelectPreset={handleSelectPreset}
         onReset={handleReset}
+        savedCount={history.length}
       />
 
-      {/* Main Container */}
+      {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 relative z-10">
         
-        {/* Preset Description Banner */}
-        <div className="white-glass-card rounded-2xl p-5 border border-slate-200 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-all duration-300 hover:shadow-md relative overflow-hidden">
-          {/* Subtle animated rainbow accent stripe */}
-          <div className="absolute top-0 left-0 right-0 h-[3px] vibgyor-ribbon" />
-
-          <div>
-            <div className="flex items-center space-x-2.5">
-              <span className="font-mono text-[10px] text-indigo-700 font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-indigo-50 border border-indigo-200">
-                ACTIVE PRESET
-              </span>
-              <h2 className="text-base font-extrabold text-slate-900 tracking-tight">
-                {PRESET_SCENARIOS.find(p => p.id === selectedPresetId)?.title}
-              </h2>
-            </div>
-            <p className="text-xs text-slate-600 mt-1.5 max-w-3xl leading-relaxed">
-              {PRESET_SCENARIOS.find(p => p.id === selectedPresetId)?.description}
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-1.5 shrink-0">
-            {PRESET_SCENARIOS.find(p => p.id === selectedPresetId)?.tags.map((tag, idx) => (
-              <span 
-                key={idx} 
-                className={`text-[10px] font-mono font-bold px-2.5 py-1 rounded-full border shadow-2xs transition-transform hover:scale-105 ${
-                  VIBGYOR_TAG_CLASSES[idx % VIBGYOR_TAG_CLASSES.length]
-                }`}
-              >
-                #{tag}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        {/* Compression Mode Selector */}
-        <ModeSelector
-          currentMode={currentMode}
-          onSelectMode={handleSelectMode}
+        {/* Top Section: Past History */}
+        <PromptHistory
+          history={history}
+          onSelectHistory={handleSelectHistory}
+          onDeleteHistory={handleDeleteHistory}
+          onClearHistory={handleClearHistory}
+          onLoadExample={handleLoadExample}
         />
 
-        {/* Top Split: Multi-Platform Slots & Master Prompt Output */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Left: Input Slots */}
-          <PromptSlotManager
-            slots={slots}
-            onUpdateSlot={handleUpdateSlot}
-            onAddSlot={handleAddSlot}
-            onRemoveSlot={handleRemoveSlot}
-            onCompile={() => executeCompilation(slots, currentMode)}
+        {/* Core Split: Prompt Input for Models (Left) & Result View (Right) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-[580px]">
+          {/* Left: Input of prompts for different models */}
+          <ModelPromptInput
+            promptText={promptText}
+            selectedModel={selectedModel}
+            selectedMode={selectedMode}
             isCompiling={isCompiling}
+            onPromptChange={setPromptText}
+            onModelChange={(model) => {
+              setSelectedModel(model);
+            }}
+            onModeChange={(mode) => {
+              setSelectedMode(mode);
+              executeCompilation(promptText, selectedModel, mode, true);
+            }}
+            onOptimize={() => {
+              executeCompilation(promptText, selectedModel, selectedMode, true);
+            }}
           />
 
-          {/* Right: Master Prompt View */}
-          <MasterPromptView
+          {/* Right: Result Part */}
+          <OptimizedResultView
             synthesis={synthesis}
+            originalPrompt={promptText}
             isCompiling={isCompiling}
-            onCompile={() => executeCompilation(slots, currentMode)}
+            selectedModel={selectedModel}
+            selectedMode={selectedMode}
+            onRecompile={() => {
+              executeCompilation(promptText, selectedModel, selectedMode, true);
+            }}
           />
         </div>
-
-        {/* Middle: Synthesis Analytics & Deconstruction Dashboard */}
-        <AnalyticsDashboard
-          synthesis={synthesis}
-          onToggleDirective={handleToggleDirective}
-        />
-
-        {/* Bottom: Live Execution Test Drive */}
-        <TestDrivePanel
-          masterPrompt={synthesis?.masterPrompt || ''}
-          mode={currentMode}
-          defaultPayloadTitle={currentPayload?.title}
-          defaultPayloadText={currentPayload?.input}
-        />
 
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-slate-200/80 bg-white/90 backdrop-blur-md py-4 text-center text-xs text-slate-500 relative z-10">
-        <p className="font-semibold text-slate-700">
-          PromptOptimizer — White Canvas with Animated VIBGYOR Spectrum Design
-        </p>
-        <div className="flex items-center justify-center space-x-1.5 mt-1.5">
-          <span className="w-2.5 h-2.5 rounded-full dot-v" style={{ backgroundColor: '#8B5CF6' }} title="Violet" />
-          <span className="w-2.5 h-2.5 rounded-full dot-i" style={{ backgroundColor: '#6366F1' }} title="Indigo" />
-          <span className="w-2.5 h-2.5 rounded-full dot-b" style={{ backgroundColor: '#3B82F6' }} title="Blue" />
-          <span className="w-2.5 h-2.5 rounded-full dot-g" style={{ backgroundColor: '#10B981' }} title="Green" />
-          <span className="w-2.5 h-2.5 rounded-full dot-y" style={{ backgroundColor: '#EAB308' }} title="Yellow" />
-          <span className="w-2.5 h-2.5 rounded-full dot-o" style={{ backgroundColor: '#F97316' }} title="Orange" />
-          <span className="w-2.5 h-2.5 rounded-full dot-r" style={{ backgroundColor: '#EF4444' }} title="Red" />
-          <span className="text-[10px] font-mono text-slate-400 ml-1 font-semibold">VIBGYOR ANIMATED ENGINE</span>
+      <footer className="border-t border-slate-200/80 bg-white/80 backdrop-blur-md py-4 text-center text-xs text-slate-500 relative z-10">
+        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+          <p className="font-semibold text-slate-700">
+            PromptOptimizer &bull; Ultra-Simple 3D Multi-Model Prompt Synthesizer
+          </p>
+          <div className="flex items-center space-x-2 text-[11px] font-mono text-slate-400">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span>Multi-Model AI Active &bull; Flow Engine</span>
+          </div>
         </div>
       </footer>
     </div>
