@@ -179,6 +179,24 @@ export const ModelPromptInput: React.FC<ModelPromptInputProps> = ({
   const [filterModel, setFilterModel] = useState<string>('all');
   const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
   const addMenuRef = React.useRef<HTMLDivElement>(null);
+  const addMenuTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  const handleMouseEnterAddMenu = () => {
+    if (addMenuTimeoutRef.current) {
+      clearTimeout(addMenuTimeoutRef.current);
+      addMenuTimeoutRef.current = null;
+    }
+    setIsAddMenuOpen(true);
+  };
+
+  const handleMouseLeaveAddMenu = () => {
+    if (addMenuTimeoutRef.current) {
+      clearTimeout(addMenuTimeoutRef.current);
+    }
+    addMenuTimeoutRef.current = setTimeout(() => {
+      setIsAddMenuOpen(false);
+    }, 350);
+  };
 
   React.useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -187,7 +205,12 @@ export const ModelPromptInput: React.FC<ModelPromptInputProps> = ({
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      if (addMenuTimeoutRef.current) {
+        clearTimeout(addMenuTimeoutRef.current);
+      }
+    };
   }, []);
 
   const handleCopySlot = (id: string, text: string) => {
@@ -254,7 +277,12 @@ export const ModelPromptInput: React.FC<ModelPromptInputProps> = ({
             </button>
 
             {availableToAdd.length > 0 && (
-              <div ref={addMenuRef} className="relative">
+              <div 
+                ref={addMenuRef} 
+                className="relative"
+                onMouseEnter={handleMouseEnterAddMenu}
+                onMouseLeave={handleMouseLeaveAddMenu}
+              >
                 <button
                   type="button"
                   onClick={() => setIsAddMenuOpen(prev => !prev)}
@@ -270,7 +298,11 @@ export const ModelPromptInput: React.FC<ModelPromptInputProps> = ({
                 </button>
 
                 {isAddMenuOpen && (
-                  <div className="absolute right-0 top-full pt-1.5 w-56 z-50">
+                  <div 
+                    className="absolute right-0 top-full pt-1.5 w-56 z-50 before:absolute before:-top-3 before:left-0 before:right-0 before:h-4 before:content-['']"
+                    onMouseEnter={handleMouseEnterAddMenu}
+                    onMouseLeave={handleMouseLeaveAddMenu}
+                  >
                     <div className="bg-white border border-slate-200 rounded-2xl shadow-xl p-2 animate-in fade-in zoom-in-95 duration-150">
                       <div className="text-[10px] font-mono font-bold text-slate-400 px-2 py-1 uppercase tracking-wider">
                         Add Model Box:
