@@ -8,9 +8,6 @@ import {
   EyeOff, 
   Zap, 
   ShieldCheck, 
-  Layers,
-  Cpu,
-  IndianRupee,
   CheckCircle2,
   KeyRound,
   ArrowLeft,
@@ -40,12 +37,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showNewPassword, setShowNewPassword] = useState(false);
-  const [previewOtp, setPreviewOtp] = useState<string | null>(null);
   
   // UX / Feedback States
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [resendCountdown, setResendCountdown] = useState(60);
 
   // Timer for OTP resend countdown
@@ -71,7 +66,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
     setTimeout(() => {
       setIsLoading(false);
       onLogin(email.trim().toLowerCase());
-    }, 500);
+    }, 400);
   };
 
   // Instant 1-Click Demo Access
@@ -80,14 +75,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
     setTimeout(() => {
       setIsLoading(false);
       onLogin('developer@gmail.com');
-    }, 350);
+    }, 300);
   };
 
-  // Step 1: Send OTP to registered Gmail
+  // Step 1: Send OTP to registered Gmail (never displayed on screen)
   const handleSendOtp = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setErrorMsg(null);
-    setStatusMsg(null);
 
     const targetEmail = resetEmail.trim().toLowerCase();
     if (!targetEmail || !targetEmail.includes('@')) {
@@ -108,17 +102,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
         throw new Error(data.error || 'Failed to dispatch OTP to Gmail.');
       }
 
-      setPreviewOtp(data.previewOtp || '849201');
-      setStatusMsg(data.message || `6-digit OTP code dispatched to ${targetEmail}`);
       setResendCountdown(60);
+      setOtpDigits(['', '', '', '', '', '']);
       setMode('enter_otp');
     } catch (err: any) {
-      // Fallback in case backend is offline
-      const mockOtp = Math.floor(100000 + Math.random() * 900000).toString();
-      setPreviewOtp(mockOtp);
-      setStatusMsg(`Demo Mode: Dispatched 6-digit OTP to ${targetEmail}`);
-      setResendCountdown(60);
-      setMode('enter_otp');
+      setErrorMsg(err?.message || 'Failed to dispatch OTP. Please check your network connection.');
     } finally {
       setIsLoading(false);
     }
@@ -127,7 +115,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
   // Handle individual OTP digit change
   const handleOtpChange = (index: number, value: string) => {
     if (value.length > 1) {
-      // Handle paste
+      // Handle paste of 6-digit code
       const pasted = value.replace(/[^0-9]/g, '').slice(0, 6);
       if (pasted.length > 0) {
         const newDigits = [...otpDigits];
@@ -158,13 +146,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
     }
   };
 
-  // Quick auto-fill simulated OTP
-  const handleQuickAutoFillOtp = () => {
-    if (previewOtp) {
-      setOtpDigits(previewOtp.split('').slice(0, 6));
-    }
-  };
-
   // Step 2: Verify OTP and Reset Password
   const handleVerifyOtpAndReset = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -172,7 +153,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
     const enteredOtp = otpDigits.join('');
 
     if (enteredOtp.length !== 6) {
-      setErrorMsg('Please enter all 6 digits of the OTP verification code.');
+      setErrorMsg('Please enter the full 6-digit OTP code received in your Gmail.');
       return;
     }
 
@@ -206,17 +187,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
       setMode('reset_success');
       setTimeout(() => {
         onLogin(resetEmail.trim().toLowerCase());
-      }, 1600);
+      }, 1500);
     } catch (err: any) {
-      // If preview OTP matches, allow reset in offline fallback
-      if (previewOtp && enteredOtp === previewOtp) {
-        setMode('reset_success');
-        setTimeout(() => {
-          onLogin(resetEmail.trim().toLowerCase());
-        }, 1600);
-      } else {
-        setErrorMsg(err?.message || 'OTP verification failed. Please try again.');
-      }
+      setErrorMsg(err?.message || 'OTP verification failed. Please check the code in your Gmail.');
     } finally {
       setIsLoading(false);
     }
@@ -228,20 +201,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
       <div className="aurora-blob-1 -top-32 -left-32" />
       <div className="aurora-blob-2 top-60 -right-36" />
       <div className="aurora-blob-3 -bottom-36 left-1/4" />
-
-      {/* Floating 3D Background Decorative Geometric Pills on White */}
-      <div className="absolute top-12 left-12 hidden lg:flex items-center space-x-2 px-3.5 py-2 rounded-full bg-white/85 border border-purple-200/80 backdrop-blur-md text-[11px] font-mono font-bold text-purple-700 shadow-md floating-3d-symbol">
-        <Cpu className="h-4 w-4 text-purple-600" />
-        <span>V8 ENGINE OPTIMIZER</span>
-      </div>
-      <div className="absolute bottom-16 right-16 hidden lg:flex items-center space-x-2 px-3.5 py-2 rounded-full bg-white/85 border border-emerald-200/80 backdrop-blur-md text-[11px] font-mono font-bold text-emerald-700 shadow-md floating-3d-symbol" style={{ animationDelay: '1.5s' }}>
-        <IndianRupee className="h-4 w-4 text-emerald-600" />
-        <span>₹ RUPEE COST ENGINE</span>
-      </div>
-      <div className="absolute top-24 right-20 hidden lg:flex items-center space-x-2 px-3.5 py-2 rounded-full bg-white/85 border border-blue-200/80 backdrop-blur-md text-[11px] font-mono font-bold text-blue-700 shadow-md floating-3d-symbol" style={{ animationDelay: '3s' }}>
-        <Layers className="h-4 w-4 text-blue-600" />
-        <span>MULTI-USER CLOUD HISTORY</span>
-      </div>
 
       {/* Main Bright White 3D Flow Border Card Container */}
       <div className="w-full max-w-md relative z-10">
@@ -422,7 +381,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
             {mode === 'forgot_email' && (
               <form onSubmit={handleSendOtp} className="space-y-4">
                 <div className="p-3.5 rounded-xl bg-indigo-50/70 border border-indigo-100 text-xs text-indigo-900 leading-relaxed">
-                  Enter your registered <strong>Gmail address</strong>. We will generate and dispatch a secure <strong>6-digit OTP code</strong> to verify your ownership.
+                  Enter your registered <strong>Gmail address</strong>. We will generate and dispatch a secure <strong>6-digit OTP code</strong> directly to your email.
                 </div>
 
                 <div className="space-y-1">
@@ -443,16 +402,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                       className="w-full pl-10 pr-4 py-2.5 bg-slate-50/80 hover:bg-slate-50 focus:bg-white border border-slate-200 focus:border-indigo-500 rounded-xl text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all font-mono shadow-inner"
                     />
                   </div>
-                  <div className="flex items-center justify-between pt-1">
-                    <span className="text-[10px] text-slate-400">Quick fill demo account:</span>
-                    <button
-                      type="button"
-                      onClick={() => setResetEmail('developer@gmail.com')}
-                      className="text-[10px] font-mono text-indigo-600 hover:underline font-semibold"
-                    >
-                      developer@gmail.com
-                    </button>
-                  </div>
                 </div>
 
                 <button
@@ -463,12 +412,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                   {isLoading ? (
                     <>
                       <RefreshCw className="h-4 w-4 animate-spin" />
-                      <span>Sending OTP to Gmail...</span>
+                      <span>Dispatching to Gmail...</span>
                     </>
                   ) : (
                     <>
                       <Send className="h-4 w-4" />
-                      <span>Send 6-Digit OTP</span>
+                      <span>Send 6-Digit OTP to Gmail</span>
                     </>
                   )}
                 </button>
@@ -488,41 +437,25 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
             )}
 
             {/* ========================================================================= */}
-            {/* VIEW 3: ENTER 6-DIGIT OTP & SET NEW PASSWORD                             */}
+            {/* VIEW 3: ENTER 6-DIGIT OTP & SET NEW PASSWORD (NO OTP SHOWN HERE)          */}
             {/* ========================================================================= */}
             {mode === 'enter_otp' && (
               <form onSubmit={handleVerifyOtpAndReset} className="space-y-4">
-                {/* Simulated Gmail Notification Badge / Preview banner */}
-                <div className="p-3.5 rounded-xl bg-amber-50/90 border border-amber-200 text-xs text-amber-900 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-1.5 font-bold text-amber-800">
-                      <Mail className="h-3.5 w-3.5 text-amber-600" />
-                      <span>Gmail OTP Dispatch Active</span>
-                    </div>
-                    {previewOtp && (
-                      <span className="px-2 py-0.5 rounded font-mono font-black text-amber-900 bg-amber-200/80 text-[11px]">
-                        CODE: {previewOtp}
-                      </span>
-                    )}
+                {/* Clean notice indicating OTP sent to Gmail (no code shown on screen) */}
+                <div className="p-3.5 rounded-xl bg-indigo-50/70 border border-indigo-100 text-xs text-indigo-900 space-y-1">
+                  <div className="flex items-center space-x-1.5 font-bold text-indigo-800">
+                    <Mail className="h-4 w-4 text-indigo-600" />
+                    <span>OTP Sent to Registered Gmail</span>
                   </div>
-                  <p className="text-[11px] text-amber-800/90 leading-tight">
-                    An OTP was sent to <strong>{resetEmail}</strong>. Enter the 6 digits below or auto-fill:
+                  <p className="text-[11px] text-slate-600 leading-relaxed">
+                    A 6-digit verification code has been dispatched to <strong>{resetEmail}</strong>. Please check your Gmail inbox (and Spam folder) and enter the code below.
                   </p>
-                  {previewOtp && (
-                    <button
-                      type="button"
-                      onClick={handleQuickAutoFillOtp}
-                      className="w-full py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-mono text-[10px] font-bold uppercase tracking-wider transition-colors shadow-2xs"
-                    >
-                      ⚡ Auto-Fill 6-Digit OTP ({previewOtp})
-                    </button>
-                  )}
                 </div>
 
                 {/* 6-Digit OTP Inputs */}
                 <div className="space-y-1.5">
                   <label className="block text-[11px] font-mono font-bold text-slate-700 uppercase tracking-wider text-center">
-                    Enter 6-Digit Code
+                    Enter 6-Digit Code from Gmail
                   </label>
                   <div className="flex justify-between gap-1.5 sm:gap-2">
                     {otpDigits.map((digit, index) => (
@@ -535,6 +468,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                         value={digit}
                         onChange={(e) => handleOtpChange(index, e.target.value)}
                         onKeyDown={(e) => handleOtpKeyDown(index, e)}
+                        autoFocus={index === 0}
                         className="w-11 sm:w-12 h-12 text-center text-lg font-mono font-bold rounded-xl border-2 border-slate-200 focus:border-indigo-600 focus:ring-4 focus:ring-indigo-500/10 bg-white text-slate-800 outline-none transition-all shadow-xs"
                       />
                     ))}
@@ -591,7 +525,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
 
                 {/* Resend OTP Timer */}
                 <div className="flex items-center justify-between text-xs pt-1">
-                  <span className="text-slate-500 text-[11px]">Didn't get code?</span>
+                  <span className="text-slate-500 text-[11px]">Didn't receive email?</span>
                   {resendCountdown > 0 ? (
                     <span className="font-mono text-indigo-600 font-semibold text-[11px]">
                       Resend in {resendCountdown}s
@@ -602,7 +536,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                       onClick={() => handleSendOtp()}
                       className="font-mono text-indigo-600 hover:text-indigo-800 font-bold text-[11px] hover:underline"
                     >
-                      Resend OTP Now
+                      Resend OTP Code
                     </button>
                   )}
                 </div>
@@ -616,7 +550,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                   {isLoading ? (
                     <>
                       <Zap className="h-4 w-4 animate-spin" />
-                      <span>Verifying &amp; Resetting...</span>
+                      <span>Verifying with Server...</span>
                     </>
                   ) : (
                     <>
@@ -656,7 +590,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                 </p>
                 <div className="flex items-center space-x-2 text-indigo-600 text-xs font-mono font-bold pt-2">
                   <Zap className="h-4 w-4 animate-spin" />
-                  <span>Opening user profile for {resetEmail}...</span>
+                  <span>Opening workspace for {resetEmail}...</span>
                 </div>
               </div>
             )}

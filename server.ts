@@ -3,6 +3,9 @@ import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
+dotenv.config();
+import nodemailer from 'nodemailer';
 import { compilePrompts, executeTestDrive } from './src/engine/compiler';
 import { PRESET_SCENARIOS } from './src/data/presets';
 import { PromptSlot, CompressionMode } from './src/types';
@@ -88,8 +91,62 @@ function writeUserHistories(data: Record<string, any[]>) {
   }
 }
 
+// Send real OTP email to user's Gmail
+async function sendOtpEmail(toEmail: string, otp: string): Promise<boolean> {
+  const gmailUser = process.env.GMAIL_USER || process.env.SMTP_USER;
+  const gmailPass = process.env.GMAIL_APP_PASSWORD || process.env.SMTP_PASS;
+
+  console.log(`[AUTH] 📧 Dispatched 6-digit OTP for ${toEmail}: ${otp}`);
+
+  if (gmailUser && gmailPass) {
+    try {
+      const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: gmailUser,
+          pass: gmailPass,
+        },
+      });
+
+      await transporter.sendMail({
+        from: `"PromptOptimizer Security" <${gmailUser}>`,
+        to: toEmail,
+        subject: `Your PromptOptimizer Verification Code: ${otp}`,
+        text: `Your 6-digit OTP verification code is: ${otp}.\n\nThis code will expire in 10 minutes.\n\nIf you did not request this, please ignore this email.`,
+        html: `
+          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; padding: 32px 24px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px;">
+            <div style="text-align: center; margin-bottom: 24px;">
+              <h1 style="color: #4f46e5; margin: 0; font-size: 24px; font-weight: 800;">PromptOptimizer</h1>
+              <p style="color: #64748b; font-size: 13px; margin: 4px 0 0 0;">Password Reset Verification Code</p>
+            </div>
+            <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; text-align: center; margin-bottom: 24px;">
+              <p style="color: #334155; font-size: 14px; margin: 0 0 16px 0;">Here is your single-use 6-digit verification code:</p>
+              <div style="font-size: 36px; font-weight: 900; font-family: monospace; letter-spacing: 10px; color: #1e1b4b; background: #ffffff; padding: 14px 24px; border-radius: 10px; display: inline-block; border: 2px solid #6366f1;">
+                ${otp}
+              </div>
+              <p style="color: #e11d48; font-size: 12px; margin: 16px 0 0 0; font-weight: 600;">Expires in 10 minutes</p>
+            </div>
+            <p style="color: #64748b; font-size: 12px; line-height: 1.6; margin: 0;">
+              Enter this code on the PromptOptimizer verification screen to reset your password and access your workspace. If you didn't request this, you can safely ignore this email.
+            </p>
+          </div>
+        `
+      });
+
+      console.log(`[AUTH] ✅ Email successfully sent via Gmail SMTP to ${toEmail}`);
+      return true;
+    } catch (err: any) {
+      console.error(`[AUTH] ❌ Failed to dispatch email via Gmail SMTP:`, err?.message || err);
+      return false;
+    }
+  } else {
+    console.log(`[AUTH] 💡 Notice: GMAIL_USER and GMAIL_APP_PASSWORD are not set in .env. To enable direct Gmail inbox delivery, add GMAIL_USER and GMAIL_APP_PASSWORD in your .env file.`);
+    return false;
+  }
+}
+
 // 1. Send OTP to Gmail
-app.post('/api/auth/send-otp', (req: Request, res: Response) => {
+app.post('/api/auth/send-otp', async (req: Request, res: Response) => {
   try {
     const { email } = req.body as { email?: string };
     if (!email || !email.includes('@')) {
@@ -102,12 +159,13 @@ app.post('/api/auth/send-otp', (req: Request, res: Response) => {
 
     otpStore[cleanEmail] = { otp: generatedOtp, expiresAt };
 
-    console.log(`[AUTH] 📧 Generated OTP for ${cleanEmail}: ${generatedOtp}`);
+    // Dispatch real email via Gmail SMTP
+    await sendOtpEmail(cleanEmail, generatedOtp);
 
+    // CRITICAL: NEVER return the OTP code or preview to the frontend!
     return res.json({
       success: true,
-      message: `A 6-digit OTP verification code has been dispatched to ${cleanEmail}.`,
-      previewOtp: generatedOtp, // Included so user can test seamlessly
+      message: `A 6-digit OTP verification code has been dispatched to ${cleanEmail}. Please check your Gmail inbox.`,
       expiresInSeconds: 600
     });
   } catch (err: any) {
