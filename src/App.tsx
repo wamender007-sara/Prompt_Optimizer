@@ -1,26 +1,78 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Header } from './components/Header';
 import { PromptHistory, HistoryItem } from './components/PromptHistory';
-import { ModelPromptInput, AVAILABLE_MODELS } from './components/ModelPromptInput';
+import { ModelPromptInput, ALL_MODEL_CONFIGS } from './components/ModelPromptInput';
 import { OptimizedResultView } from './components/OptimizedResultView';
 import { PlatformId, CompressionMode, SynthesisResult, PromptSlot } from './types';
 import { compilePrompts } from './engine/compiler';
 
 const STORAGE_KEY = 'prompt_optimizer_history_v2';
 
-// Initial realistic default prompts
-const DEFAULT_INITIAL_PROMPT = `Act as a world-renowned Senior Software Architect with 20+ years of experience.
+const INITIAL_SLOTS: PromptSlot[] = [
+  {
+    id: 'slot-chatgpt',
+    platform: 'chatgpt',
+    name: 'ChatGPT 4o',
+    prompt: `Act as a world-renowned Senior Software Architect with 20+ years of experience.
 I need you to thoroughly examine my code. Please make sure to point out any code smells, eliminate all vulnerabilities, and make it look clean and modern.
-Follow SOLID principles and please explain every single step kindly as if I am learning. Also feel free to add nice greetings and have fun with it!`;
+Follow SOLID principles and please explain every single step kindly as if I am learning. Also feel free to add nice greetings and have fun with it!`,
+    enabled: true
+  },
+  {
+    id: 'slot-claude',
+    platform: 'claude',
+    name: 'Claude 3.5 Sonnet',
+    prompt: `Analyze the provided TypeScript snippet with strict adherence to architectural resilience and type soundness.
+<constraints>
+- Eliminate all usage of 'any', replacing with strict generics, unknown with type guards, or discriminated unions.
+- Enforce immutable data structures (Readonly<T>, ReadonlyArray<T>, Object.freeze).
+- Flag any asynchronous unhandled rejections or memory leaks.
+</constraints>
+<output_format>
+Output only: 1. Vulnerability Matrix; 2. Refactored Codebase; 3. Verification Proofs.
+No conversational preamble or polite pleasantries.`,
+    enabled: true
+  },
+  {
+    id: 'slot-gemini',
+    platform: 'gemini',
+    name: 'Gemini 2.0 / 1.5 Pro',
+    prompt: `You are an expert Google engineer specializing in V8 engine optimization and high-throughput Node.js microservices.
+Examine this implementation:
+1. Benchmark potential and identify hidden CPU spikes, de-optimizations, and GC pressure in V8.
+2. Verify cross-service resilience: circuit breaker patterns and exponential backoff with jitter.
+3. Produce tabular summaries comparing Before vs. After memory complexity.`,
+    enabled: true
+  },
+  {
+    id: 'slot-deepseek',
+    platform: 'deepseek',
+    name: 'DeepSeek V3 / R1',
+    prompt: `Act as an elite algorithmic competitive programming master.
+Analyze this logic for edge case overflows, Big-O algorithmic complexity, memory heap allocation bottlenecks, and concurrency deadlocks.
+Provide complete refactored code without polite disclaimers.`,
+    enabled: false
+  },
+  {
+    id: 'slot-cursor',
+    platform: 'cursor',
+    name: 'Cursor / Copilot',
+    prompt: `// .cursorrules context: High-performance TypeScript Node.js backend
+// Focus: Strict AST refactor, zero any, production safety
+- Always return exact code replacements, no placeholder comments like '// ... rest of code'.
+- Implement strict null checks and exhaustive switch matching with assertNever.
+- Add comprehensive JSDoc annotations with @param, @returns, and @throws.`,
+    enabled: false
+  }
+];
 
-// Initial sample past history so the user sees a rich UI on initial load
 const INITIAL_SAMPLE_HISTORY: HistoryItem[] = [
   {
     id: 'sample-hist-1',
     timestamp: Date.now() - 1000 * 60 * 15,
     timeAgo: '15m ago',
     model: 'claude',
-    modelName: 'Claude 3.5 Sonnet',
+    modelName: 'Multi-Model (Claude + GPT-4o)',
     mode: 'production_balanced',
     inputPrompt: `Act as a senior engineer. Please examine this TypeScript code, eliminate any usage of any, ensure immutable data structures, and check for async memory leaks. Do not add polite pleasantries.`,
     optimizedPrompt: `1. Enforce strict typing: replace all 'any' with discriminated unions or generics with guards.\n2. Mandate immutability across all data structures using Readonly<T>.\n3. Audit async workflows for unhandled rejections and EventEmitter leaks.\n4. Output vulnerability risk table and refactored zero-defect codebase.`,
@@ -46,10 +98,9 @@ const INITIAL_SAMPLE_HISTORY: HistoryItem[] = [
 ];
 
 export const App: React.FC = () => {
-  // State: Model, Mode, Prompt
-  const [selectedModel, setSelectedModel] = useState<PlatformId>('chatgpt');
+  // State: Slots (Separate box for each model)
+  const [slots, setSlots] = useState<PromptSlot[]>(INITIAL_SLOTS);
   const [selectedMode, setSelectedMode] = useState<CompressionMode>('production_balanced');
-  const [promptText, setPromptText] = useState<string>(DEFAULT_INITIAL_PROMPT);
 
   // State: Synthesis Output & Compiling status
   const [synthesis, setSynthesis] = useState<SynthesisResult | null>(null);
@@ -80,51 +131,47 @@ export const App: React.FC = () => {
     }
   }, [history]);
 
-  // Execute compilation
+  // Execute compilation across active model boxes
   const executeCompilation = useCallback(async (
-    textToCompile: string,
-    model: PlatformId,
+    activeSlots: PromptSlot[],
     mode: CompressionMode,
     addToHistory: boolean = true
   ) => {
-    if (!textToCompile.trim()) return;
+    const validSlots = activeSlots.filter(s => s.enabled && s.prompt.trim().length > 0);
+    if (validSlots.length === 0) return;
 
     setIsCompiling(true);
-    const activeSlot: PromptSlot = {
-      id: `slot-${model}`,
-      platform: model,
-      name: AVAILABLE_MODELS.find(m => m.id === model)?.name || model,
-      prompt: textToCompile,
-      enabled: true,
-    };
 
     try {
       let result: SynthesisResult;
       const res = await fetch('/api/analyze-and-compile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slots: [activeSlot], mode })
+        body: JSON.stringify({ slots: validSlots, mode })
       });
 
       if (res.ok) {
         result = await res.json();
       } else {
-        result = compilePrompts([activeSlot], mode);
+        result = compilePrompts(validSlots, mode);
       }
 
       setSynthesis(result);
 
       // Add to past history if requested
       if (addToHistory && result && result.masterPrompt) {
-        const modelMeta = AVAILABLE_MODELS.find(m => m.id === model);
+        const primaryModel = validSlots[0]?.platform || 'custom';
+        const modelNames = validSlots.map(s => s.name).join(' + ');
+        const combinedInput = validSlots.map(s => `[${s.name}]: ${s.prompt}`).join('\n\n');
+
         const newHistItem: HistoryItem = {
           id: `hist-${Date.now()}`,
           timestamp: Date.now(),
           timeAgo: 'Just now',
-          model: model,
-          modelName: modelMeta?.name || model,
+          model: primaryModel,
+          modelName: validSlots.length > 1 ? `Multi-Model (${validSlots.length})` : modelNames,
           mode: mode,
-          inputPrompt: textToCompile,
+          inputPrompt: combinedInput,
           optimizedPrompt: result.masterPrompt,
           originalTokens: result.metrics.originalTotalTokens,
           optimizedTokens: result.metrics.compressedTokens,
@@ -136,19 +183,22 @@ export const App: React.FC = () => {
       }
     } catch (err) {
       console.warn('Fallback to client compilation:', err);
-      const fallback = compilePrompts([activeSlot], mode);
+      const fallback = compilePrompts(validSlots, mode);
       setSynthesis(fallback);
 
       if (addToHistory && fallback && fallback.masterPrompt) {
-        const modelMeta = AVAILABLE_MODELS.find(m => m.id === model);
+        const primaryModel = validSlots[0]?.platform || 'custom';
+        const modelNames = validSlots.map(s => s.name).join(' + ');
+        const combinedInput = validSlots.map(s => `[${s.name}]: ${s.prompt}`).join('\n\n');
+
         const newHistItem: HistoryItem = {
           id: `hist-${Date.now()}`,
           timestamp: Date.now(),
           timeAgo: 'Just now',
-          model: model,
-          modelName: modelMeta?.name || model,
+          model: primaryModel,
+          modelName: validSlots.length > 1 ? `Multi-Model (${validSlots.length})` : modelNames,
           mode: mode,
-          inputPrompt: textToCompile,
+          inputPrompt: combinedInput,
           optimizedPrompt: fallback.masterPrompt,
           originalTokens: fallback.metrics.originalTotalTokens,
           optimizedTokens: fallback.metrics.compressedTokens,
@@ -165,16 +215,66 @@ export const App: React.FC = () => {
 
   // Initial compilation on mount
   useEffect(() => {
-    executeCompilation(promptText, selectedModel, selectedMode, false);
+    executeCompilation(slots, selectedMode, false);
   }, []);
+
+  // Slot management
+  const handleUpdateSlot = (id: string, updates: Partial<PromptSlot>) => {
+    setSlots(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
+  };
+
+  const handleAddSlot = (platform: PlatformId) => {
+    const cfg = ALL_MODEL_CONFIGS[platform];
+    const newSlot: PromptSlot = {
+      id: `slot-${platform}-${Date.now()}`,
+      platform: platform,
+      name: cfg?.name || platform,
+      prompt: cfg?.samplePrompt || '',
+      enabled: true
+    };
+    setSlots(prev => [...prev, newSlot]);
+  };
+
+  const handleRemoveSlot = (id: string) => {
+    if (slots.length <= 1) return;
+    setSlots(prev => prev.filter(s => s.id !== id));
+  };
+
+  const handleFillAllSamples = () => {
+    setSlots(prev => prev.map(s => {
+      const cfg = ALL_MODEL_CONFIGS[s.platform];
+      return {
+        ...s,
+        prompt: cfg?.samplePrompt || s.prompt,
+        enabled: true
+      };
+    }));
+  };
+
+  const handleClearAllSlots = () => {
+    setSlots(prev => prev.map(s => ({ ...s, prompt: '' })));
+  };
 
   // Select item from history
   const handleSelectHistory = (item: HistoryItem) => {
-    setSelectedModel(item.model);
     setSelectedMode(item.mode);
-    setPromptText(item.inputPrompt);
-    // Directly recompile or load saved synthesis
-    executeCompilation(item.inputPrompt, item.model, item.mode, false);
+    // Restore prompt into matching or first slot
+    setSlots(prev => {
+      let matched = false;
+      const next = prev.map(s => {
+        if (!matched && (s.platform === item.model || prev.length === 1)) {
+          matched = true;
+          return { ...s, prompt: item.inputPrompt, enabled: true };
+        }
+        return s;
+      });
+      return next;
+    });
+    executeCompilation(
+      slots.map(s => s.platform === item.model ? { ...s, prompt: item.inputPrompt, enabled: true } : s),
+      item.mode,
+      false
+    );
   };
 
   // Delete item from history
@@ -193,28 +293,31 @@ export const App: React.FC = () => {
     }
   };
 
-  // Reset to clean fresh prompt
+  // Reset to default
   const handleReset = () => {
-    setSelectedModel('chatgpt');
+    setSlots(INITIAL_SLOTS);
     setSelectedMode('production_balanced');
-    setPromptText('');
     setSynthesis(null);
   };
 
-  // Load quick examples into input
+  // Quick example loader
   const handleLoadExample = (exampleId: string) => {
     if (exampleId === 'example-code') {
-      const codePrompt = `Act as an expert software engineer. Review my TypeScript functions for code smells, eliminate all any types, replace them with strict generics, and format everything cleanly. Please explain nicely.`;
-      setSelectedModel('claude');
-      setPromptText(codePrompt);
-      executeCompilation(codePrompt, 'claude', selectedMode, true);
-    } else if (exampleId === 'example-security') {
-      const secPrompt = `You are a high-level application security architect. Thoroughly audit this backend code for OWASP Top 10 vulnerabilities like SQL injection, CSRF, and prototype pollution.`;
-      setSelectedModel('chatgpt');
-      setPromptText(secPrompt);
-      executeCompilation(secPrompt, 'chatgpt', selectedMode, true);
+      handleFillAllSamples();
+      executeCompilation(INITIAL_SLOTS, selectedMode, true);
+    } else {
+      handleFillAllSamples();
+      executeCompilation(INITIAL_SLOTS, 'ultra_distilled', true);
     }
   };
+
+  // Build original prompt combined string for the Compare view
+  const originalPromptCombined = slots
+    .filter(s => s.enabled && s.prompt.trim())
+    .map(s => `--- [${s.name.toUpperCase()}] ---\n${s.prompt}`)
+    .join('\n\n');
+
+  const primaryActivePlatform = slots.find(s => s.enabled)?.platform || 'chatgpt';
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans relative overflow-x-hidden mesh-dot-grid selection:bg-indigo-500/20 selection:text-indigo-900">
@@ -241,36 +344,36 @@ export const App: React.FC = () => {
           onLoadExample={handleLoadExample}
         />
 
-        {/* Core Split: Prompt Input for Models (Left) & Result View (Right) */}
+        {/* Core Split: Separate Model Boxes (Left) & Result View (Right) */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-[580px]">
-          {/* Left: Input of prompts for different models */}
+          {/* Left: Separate input boxes for each model */}
           <ModelPromptInput
-            promptText={promptText}
-            selectedModel={selectedModel}
+            slots={slots}
             selectedMode={selectedMode}
             isCompiling={isCompiling}
-            onPromptChange={setPromptText}
-            onModelChange={(model) => {
-              setSelectedModel(model);
-            }}
+            onUpdateSlot={handleUpdateSlot}
+            onAddSlot={handleAddSlot}
+            onRemoveSlot={handleRemoveSlot}
             onModeChange={(mode) => {
               setSelectedMode(mode);
-              executeCompilation(promptText, selectedModel, mode, true);
+              executeCompilation(slots, mode, true);
             }}
             onOptimize={() => {
-              executeCompilation(promptText, selectedModel, selectedMode, true);
+              executeCompilation(slots, selectedMode, true);
             }}
+            onFillAllSamples={handleFillAllSamples}
+            onClearAllSlots={handleClearAllSlots}
           />
 
           {/* Right: Result Part */}
           <OptimizedResultView
             synthesis={synthesis}
-            originalPrompt={promptText}
+            originalPrompt={originalPromptCombined}
             isCompiling={isCompiling}
-            selectedModel={selectedModel}
+            selectedModel={primaryActivePlatform}
             selectedMode={selectedMode}
             onRecompile={() => {
-              executeCompilation(promptText, selectedModel, selectedMode, true);
+              executeCompilation(slots, selectedMode, true);
             }}
           />
         </div>
@@ -285,7 +388,7 @@ export const App: React.FC = () => {
           </p>
           <div className="flex items-center space-x-2 text-[11px] font-mono text-slate-400">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span>Multi-Model AI Active &bull; Flow Engine</span>
+            <span>Dedicated Model Boxes Active &bull; Flow Engine</span>
           </div>
         </div>
       </footer>
