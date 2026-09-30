@@ -113,11 +113,11 @@ export const PromptHistory: React.FC<PromptHistoryProps> = ({
                 </button>
                 <button
                   onClick={onClearHistory}
-                  title="Clear history"
-                  className="flex items-center space-x-1 px-2.5 py-1 text-[11px] font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 border border-rose-200 rounded-lg transition-all active:scale-95 bg-white ml-1"
+                  title="Wipe and flash all stored memory history"
+                  className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold text-rose-700 hover:text-white bg-rose-50 hover:bg-rose-600 border border-rose-200 hover:border-rose-600 rounded-xl transition-all active:scale-95 shadow-2xs ml-1"
                 >
-                  <Trash2 className="h-3 w-3" />
-                  <span className="hidden sm:inline">Clear All</span>
+                  <Trash2 className="h-3.5 w-3.5" />
+                  <span>⚡ Flash Memory</span>
                 </button>
               </>
             )}

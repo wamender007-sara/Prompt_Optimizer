@@ -8,7 +8,7 @@ import {
   Split, 
   Play, 
   Clock,
-  DollarSign,
+  IndianRupee,
   ShieldAlert,
   ChevronDown,
   ChevronUp,
@@ -417,7 +417,7 @@ export const OptimizedResultView: React.FC<OptimizedResultViewProps> = ({
               </p>
             </div>
 
-            {/* Card 3: Cost Savings (1M Calls) */}
+            {/* Card 3: Cost Savings (1M Calls) in Indian Rupees (₹) */}
             <div className="analysis-card-3d p-4 bg-white border border-slate-200/80">
               <div className="h-[2.5px] -mt-4 -mx-4 mb-3.5 bg-amber-500" />
               <div className="flex items-center justify-between mb-2">
@@ -425,16 +425,16 @@ export const OptimizedResultView: React.FC<OptimizedResultViewProps> = ({
                   <span className="w-2 h-2 rounded-full bg-amber-500" />
                   <span>COST SAVINGS (1M CALLS)</span>
                 </span>
-                <DollarSign className="h-3.5 w-3.5 text-amber-500" />
+                <IndianRupee className="h-3.5 w-3.5 text-amber-500" />
               </div>
               <div className="flex items-baseline space-x-1">
                 <span className="text-2xl font-black text-amber-600 tracking-tight">
-                  ${synthesis.metrics.estimatedCostSavedPer1MRuns}
+                  ₹{Number(synthesis.metrics.estimatedCostSavedPer1MRuns).toLocaleString('en-IN')}
                 </span>
                 <span className="text-xs font-mono text-slate-500 font-semibold">saved</span>
               </div>
               <p className="text-[10px] text-slate-400 mt-2 font-mono">
-                Based on standard LLM input token pricing
+                Savings per 1M calls in Indian Rupees (₹)
               </p>
             </div>
 

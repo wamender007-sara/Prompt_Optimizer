@@ -142,8 +142,8 @@ export function compilePrompts(
   // Latency savings: ~18ms per 100 tokens processed in TTFT (Time-To-First-Token) & prefill
   const tokensSaved = Math.max(0, originalTotalTokens - compressedTokens);
   const estimatedLatencySavedMs = Math.round((tokensSaved / 100) * 18);
-  // Cost savings: Average modern frontier blend ~$3.00 per 1M input tokens
-  const estimatedCostSavedPer1MRuns = Math.round(tokensSaved * 3.0);
+  // Cost savings: Average modern frontier blend in Indian Rupees (₹) (~₹260 / 1M input tokens)
+  const estimatedCostSavedPer1MRuns = Math.round(tokensSaved * 260);
 
   // 6. Platform Contribution Matrix
   const colors: Record<string, string> = {

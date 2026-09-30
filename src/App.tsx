@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { LoginPage } from './components/LoginPage';
 import { Header } from './components/Header';
 import { PromptHistory, HistoryItem } from './components/PromptHistory';
 import { ModelPromptInput, ALL_MODEL_CONFIGS } from './components/ModelPromptInput';
@@ -7,6 +8,7 @@ import { PlatformId, CompressionMode, SynthesisResult, PromptSlot } from './type
 import { compilePrompts } from './engine/compiler';
 
 const STORAGE_KEY = 'prompt_optimizer_history_v2';
+const AUTH_KEY = 'prompt_optimizer_auth_session';
 
 const INITIAL_SLOTS: PromptSlot[] = [
   {
@@ -66,38 +68,16 @@ Provide complete refactored code without polite disclaimers.`,
   }
 ];
 
-const INITIAL_SAMPLE_HISTORY: HistoryItem[] = [
-  {
-    id: 'sample-hist-1',
-    timestamp: Date.now() - 1000 * 60 * 15,
-    timeAgo: '15m ago',
-    model: 'claude',
-    modelName: 'Multi-Model (Claude + GPT-4o)',
-    mode: 'production_balanced',
-    inputPrompt: `Act as a senior engineer. Please examine this TypeScript code, eliminate any usage of any, ensure immutable data structures, and check for async memory leaks. Do not add polite pleasantries.`,
-    optimizedPrompt: `1. Enforce strict typing: replace all 'any' with discriminated unions or generics with guards.\n2. Mandate immutability across all data structures using Readonly<T>.\n3. Audit async workflows for unhandled rejections and EventEmitter leaks.\n4. Output vulnerability risk table and refactored zero-defect codebase.`,
-    originalTokens: 46,
-    optimizedTokens: 25,
-    reductionPercentage: 46,
-    coreIntent: 'Strict TypeScript immutability and memory leak audit'
-  },
-  {
-    id: 'sample-hist-2',
-    timestamp: Date.now() - 1000 * 60 * 65,
-    timeAgo: '1h ago',
-    model: 'gemini',
-    modelName: 'Gemini 2.0 / 1.5 Pro',
-    mode: 'ultra_distilled',
-    inputPrompt: `You are an expert Google engineer. Can you please analyze my Node.js microservice architecture for CPU spikes, V8 de-optimizations, and GC pressure? Please provide circuit breaker patterns and latency diffs.`,
-    optimizedPrompt: `Analyze Node.js microservice: profile V8 inline cache de-optimizations, GC heap pressure, and CPU hot loops. Implement circuit breaker with exponential jitter. Provide Before/After latency matrix.`,
-    originalTokens: 42,
-    optimizedTokens: 22,
-    reductionPercentage: 48,
-    coreIntent: 'V8 engine latency optimization and circuit breaker pattern'
-  }
-];
-
 export const App: React.FC = () => {
+  // State: Authentication (starts at the high-animated login page)
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    try {
+      return sessionStorage.getItem(AUTH_KEY) === 'true';
+    } catch {
+      return false;
+    }
+  });
+
   // State: Slots (Separate box for each model)
   const [slots, setSlots] = useState<PromptSlot[]>(INITIAL_SLOTS);
   const [selectedMode, setSelectedMode] = useState<CompressionMode>('production_balanced');
@@ -106,26 +86,26 @@ export const App: React.FC = () => {
   const [synthesis, setSynthesis] = useState<SynthesisResult | null>(null);
   const [isCompiling, setIsCompiling] = useState<boolean>(false);
 
-  // State: Past History
-  const [history, setHistory] = useState<HistoryItem[]>(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
-        }
-      }
-    } catch {
-      // Fallback
-    }
-    return INITIAL_SAMPLE_HISTORY;
-  });
+  // State: Past History (Flashed / cleared on user request)
+  const [history, setHistory] = useState<HistoryItem[]>([]);
 
-  // Save history to localStorage
+  // Flash / purge previous stored history keys from browser memory
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem('prompt_optimizer_history_v1');
+      localStorage.removeItem('prompt_optimizer_history');
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // Save fresh history to localStorage when user creates runs
+  useEffect(() => {
+    try {
+      if (history.length > 0) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+      }
     } catch {
       // Ignore storage errors
     }
@@ -258,7 +238,6 @@ export const App: React.FC = () => {
   // Select item from history
   const handleSelectHistory = (item: HistoryItem) => {
     setSelectedMode(item.mode);
-    // Restore prompt into matching or first slot
     setSlots(prev => {
       let matched = false;
       const next = prev.map(s => {
@@ -283,11 +262,13 @@ export const App: React.FC = () => {
     setHistory(prev => prev.filter(item => item.id !== id));
   };
 
-  // Clear all history
+  // Flash / wipe all history completely
   const handleClearHistory = () => {
     setHistory([]);
     try {
       localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem('prompt_optimizer_history_v1');
+      localStorage.removeItem('prompt_optimizer_history');
     } catch {
       // ignore
     }
@@ -311,6 +292,26 @@ export const App: React.FC = () => {
     }
   };
 
+  // Login handler
+  const handleLogin = () => {
+    setIsAuthenticated(true);
+    try {
+      sessionStorage.setItem(AUTH_KEY, 'true');
+    } catch {
+      // ignore
+    }
+  };
+
+  // Logout handler
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    try {
+      sessionStorage.removeItem(AUTH_KEY);
+    } catch {
+      // ignore
+    }
+  };
+
   // Build original prompt combined string for the Compare view
   const originalPromptCombined = slots
     .filter(s => s.enabled && s.prompt.trim())
@@ -319,8 +320,13 @@ export const App: React.FC = () => {
 
   const primaryActivePlatform = slots.find(s => s.enabled)?.platform || 'chatgpt';
 
+  // If not authenticated, render the high animated Login Page!
+  if (!isAuthenticated) {
+    return <LoginPage onLogin={handleLogin} />;
+  }
+
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans relative overflow-x-hidden mesh-dot-grid selection:bg-indigo-500/20 selection:text-indigo-900">
+    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans relative overflow-x-hidden mesh-dot-grid selection:bg-indigo-500/20 selection:text-indigo-900 animate-in fade-in duration-300">
       {/* 3D Ambient Flowing Animated Aurora Blobs */}
       <div className="aurora-blob-1 -top-24 -left-28" />
       <div className="aurora-blob-2 top-80 -right-36" />
@@ -330,12 +336,13 @@ export const App: React.FC = () => {
       <Header
         onReset={handleReset}
         savedCount={history.length}
+        onLogout={handleLogout}
       />
 
-      {/* Main Content Area */}
+      {/* Main Content Area: Flow from Top (Inputs) to Bottom (Optimized Result & Analysis) */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 relative z-10">
         
-        {/* Top Section: Past History */}
+        {/* Top Section: Past History (Flashed / Ready for new runs) */}
         <PromptHistory
           history={history}
           onSelectHistory={handleSelectHistory}
@@ -365,7 +372,7 @@ export const App: React.FC = () => {
           />
         </section>
 
-        {/* Bottom Main: Optimized Prompt at the Bottom with Bottom Designed Analysis */}
+        {/* Bottom Main: Optimized Prompt at the Bottom with Bottom Designed Analysis in ₹ */}
         <section aria-label="Optimized Result & Analysis" className="w-full">
           <OptimizedResultView
             synthesis={synthesis}
@@ -389,7 +396,7 @@ export const App: React.FC = () => {
           </p>
           <div className="flex items-center space-x-2 text-[11px] font-mono text-slate-400">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span>Dedicated Model Boxes Active &bull; Flow Engine</span>
+            <span>₹ Rupee Cost Engine Active &bull; Flow Engine</span>
           </div>
         </div>
       </footer>

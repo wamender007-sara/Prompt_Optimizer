@@ -2,19 +2,20 @@ import React from 'react';
 import { 
   Sparkles, 
   RotateCcw, 
-  Zap,
-  Box,
-  Layers
+  LogOut,
+  UserCheck
 } from 'lucide-react';
 
 interface HeaderProps {
   onReset: () => void;
   savedCount: number;
+  onLogout?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   onReset,
   savedCount,
+  onLogout,
 }) => {
   return (
     <header className="border-b border-slate-200/80 bg-white/85 backdrop-blur-xl sticky top-0 z-40 relative shadow-[0_4px_25px_-5px_rgba(99,102,241,0.06)]">
@@ -43,13 +44,13 @@ export const Header: React.FC<HeaderProps> = ({
               </span>
             </div>
             <p className="text-[11px] text-slate-500 hidden sm:block">
-              Multi-Model AI Prompt Distillation &amp; Zero-Fluff Optimization
+              Multi-Model AI Prompt Distillation &bull; ₹ Rupee Cost Savings
             </p>
           </div>
         </div>
 
-        {/* Right Controls: Actions & Status */}
-        <div className="flex items-center space-x-3">
+        {/* Right Controls: Actions, Status & Logout */}
+        <div className="flex items-center space-x-2.5">
           
           {/* Reset / New Prompt */}
           <button
@@ -62,10 +63,22 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
 
           {/* Compiler Active Status Pill */}
-          <div className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-emerald-50/80 border border-emerald-200/80 text-[11px] text-emerald-700 font-mono font-bold shadow-2xs">
+          <div className="hidden sm:flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-emerald-50/80 border border-emerald-200/80 text-[11px] text-emerald-700 font-mono font-bold shadow-2xs">
             <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
             <span>AI Ready</span>
           </div>
+
+          {/* Logout / Exit button */}
+          {onLogout && (
+            <button
+              onClick={onLogout}
+              title="Lock & return to Animated Login"
+              className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-rose-700 bg-rose-50/80 hover:bg-rose-100/80 border border-rose-200 rounded-xl transition-all active:scale-95 shadow-2xs"
+            >
+              <LogOut className="h-3.5 w-3.5 text-rose-600" />
+              <span className="hidden sm:inline">Lock / Logout</span>
+            </button>
+          )}
 
         </div>
 
