@@ -69,6 +69,14 @@ Scrutinize every line of the TypeScript source code for latent boundary errors:
 - Concurrency deadlocks when acquiring async mutex locks.
 Verify each edge case rigorously before synthesizing the optimal refactored implementation.
 Ensure runtime failure modes return Result<T, E> monads rather than throwing unchecked exceptions.`
+      },
+      {
+        platform: 'perplexity',
+        name: 'Perplexity Sonar Pro',
+        prompt: `Conduct an authoritative web-grounded security audit cross-referencing known CVEs, Node.js security advisories, and OWASP Top 10 standards.
+Cite official documentation and RFC guidelines for all cryptographic and session handling recommendations.
+Verify current best practices for input sanitization, zero-trust token exchange, and parameterized SQL queries.
+Provide structured markdown tables with clear citations and zero speculative claims.`
       }
     ],
     samplePayload: {

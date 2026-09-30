@@ -55,6 +55,13 @@ const PLATFORM_THEMES: Record<PlatformId, { color: string; border: string; bg: s
     text: 'text-sky-700',
     letter: 'B'
   },
+  perplexity: {
+    color: '#0D9488', // Teal
+    border: 'border-teal-300',
+    bg: 'bg-teal-50 text-teal-800',
+    text: 'text-teal-700',
+    letter: 'P'
+  },
   custom: {
     color: '#8B5CF6', // V - Violet
     border: 'border-purple-300',
@@ -188,7 +195,20 @@ export const PromptSlotManager: React.FC<PromptSlotManagerProps> = ({
                   onChange={(e) => onUpdateSlot(activeSlot.id, { name: e.target.value })}
                   className="bg-white border border-slate-200 font-mono text-xs font-bold text-slate-800 px-3 py-1.5 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 shadow-xs"
                 />
-                <span className="text-xs text-slate-500 font-mono">
+                <select
+                  value={activeSlot.platform}
+                  onChange={(e) => onUpdateSlot(activeSlot.id, { platform: e.target.value as PlatformId })}
+                  className="bg-white border border-slate-200 font-mono text-[11px] font-semibold text-slate-700 px-2 py-1.5 rounded-xl focus:outline-none focus:border-indigo-500 shadow-xs cursor-pointer"
+                >
+                  <option value="chatgpt">ChatGPT</option>
+                  <option value="claude">Claude</option>
+                  <option value="gemini">Gemini</option>
+                  <option value="cursor">Cursor</option>
+                  <option value="deepseek">DeepSeek</option>
+                  <option value="perplexity">Perplexity</option>
+                  <option value="custom">Custom</option>
+                </select>
+                <span className="text-xs text-slate-500 font-mono hidden sm:inline">
                   {estimateTokens(activeSlot.prompt)} tokens • {activeSlot.prompt.length} chars
                 </span>
               </div>

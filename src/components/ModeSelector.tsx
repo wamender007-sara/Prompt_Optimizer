@@ -5,7 +5,8 @@ import {
   Code2, 
   Target, 
   Sliders,
-  Cpu
+  Cpu,
+  Globe
 } from 'lucide-react';
 import { CompressionMode } from '../types';
 
@@ -107,6 +108,16 @@ export const ModeSelector: React.FC<ModeSelectorProps> = ({
       tagClass: 'bg-red-50 text-red-700 border-red-200',
       accentColor: '#EF4444',
       spectrumLetter: 'R'
+    },
+    {
+      id: 'target_perplexity',
+      label: 'Target: Perplexity',
+      description: 'Online web-grounded synthesis, verifiable source citations, and factual recency.',
+      icon: <Globe className="h-4 w-4" />,
+      tag: 'Web Grounded',
+      tagClass: 'bg-teal-50 text-teal-800 border-teal-300',
+      accentColor: '#0D9488',
+      spectrumLetter: 'P'
     }
   ];
 
@@ -132,7 +143,7 @@ export const ModeSelector: React.FC<ModeSelectorProps> = ({
         </span>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-2.5">
         {modes.map((mode) => {
           const isActive = currentMode === mode.id;
           return (

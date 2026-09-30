@@ -1,4 +1,4 @@
-export type PlatformId = 'chatgpt' | 'claude' | 'gemini' | 'cursor' | 'deepseek' | 'custom';
+export type PlatformId = 'chatgpt' | 'claude' | 'gemini' | 'cursor' | 'deepseek' | 'perplexity' | 'custom';
 
 export type CompressionMode = 
   | 'production_balanced' 
@@ -8,7 +8,8 @@ export type CompressionMode =
   | 'target_claude'
   | 'target_chatgpt'
   | 'target_cursor'
-  | 'target_deepseek';
+  | 'target_deepseek'
+  | 'target_perplexity';
 
 export interface PromptSlot {
   id: string;

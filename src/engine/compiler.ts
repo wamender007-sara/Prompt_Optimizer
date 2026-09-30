@@ -152,6 +152,7 @@ export function compilePrompts(
     gemini: '#3B82F6',
     cursor: '#8B5CF6',
     deepseek: '#06B6D4',
+    perplexity: '#0D9488',
     custom: '#EC4899'
   };
 
@@ -708,6 +709,22 @@ Execute the final synthesis with unyielding deterministic precision based on:
 ${constraintsList}
 
 Deliver only verified, high-density artifacts.`;
+    }
+
+    case 'target_perplexity': {
+      return `### Search & Verification System Directive: Perplexity Sonar Engine
+**Primary Objective**: ${coreIntent}
+
+#### Web Grounding & Empirical Constraints:
+${constraintsList}
+
+#### Harmonized Conflict Resolutions:
+${conflicts.map(c => `- **${c.nature}**: ${c.reconciliation}`).join('\n')}
+
+#### Verified Citation & Schema Requirements:
+- Cross-reference claims against authoritative primary documentation and official specifications.
+- Provide structured markdown tables with explicit recency timestamps and source citations.
+- Suppress speculation; ground all assertions strictly in verified facts.`;
     }
 
     case 'production_balanced':
