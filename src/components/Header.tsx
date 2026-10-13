@@ -1,23 +1,16 @@
 import React from 'react';
 import { 
   Sparkles, 
-  RotateCcw, 
-  LogOut,
-  UserCheck
+  RotateCcw
 } from 'lucide-react';
 
 interface HeaderProps {
   onReset: () => void;
   savedCount: number;
-  onLogout?: () => void;
-  currentUserEmail?: string;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   onReset,
-  savedCount,
-  onLogout,
-  currentUserEmail,
 }) => {
   return (
     <header className="border-b border-slate-200/80 bg-white/85 backdrop-blur-xl sticky top-0 z-40 relative shadow-[0_4px_25px_-5px_rgba(99,102,241,0.06)]">
@@ -51,7 +44,7 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Right Controls: Actions, Status & Logout */}
+        {/* Right Controls: Actions & Status */}
         <div className="flex items-center space-x-2.5">
           
           {/* Reset / New Prompt */}
@@ -69,26 +62,6 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
             <span>AI Ready</span>
           </div>
-
-          {/* Current Logged-in User Badge */}
-          {currentUserEmail && (
-            <div className="hidden md:flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-indigo-50/90 border border-indigo-200/80 text-[11px] text-indigo-800 font-mono font-bold shadow-2xs" title={`Logged in as ${currentUserEmail}`}>
-              <UserCheck className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
-              <span className="truncate max-w-[130px]">{currentUserEmail}</span>
-            </div>
-          )}
-
-          {/* Logout / Exit button */}
-          {onLogout && (
-            <button
-              onClick={onLogout}
-              title="Lock & return to Animated Login"
-              className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-rose-700 bg-rose-50/80 hover:bg-rose-100/80 border border-rose-200 rounded-xl transition-all active:scale-95 shadow-2xs"
-            >
-              <LogOut className="h-3.5 w-3.5 text-rose-600" />
-              <span className="hidden sm:inline">Lock / Logout</span>
-            </button>
-          )}
 
         </div>
 

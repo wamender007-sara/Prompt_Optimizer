@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { LoginPage } from './components/LoginPage';
 import { Header } from './components/Header';
 import { PromptHistory, HistoryItem } from './components/PromptHistory';
 import { ModelPromptInput, ALL_MODEL_CONFIGS } from './components/ModelPromptInput';
@@ -7,35 +6,7 @@ import { OptimizedResultView } from './components/OptimizedResultView';
 import { PlatformId, CompressionMode, SynthesisResult, PromptSlot } from './types';
 import { compilePrompts } from './engine/compiler';
 
-const AUTH_KEY = 'prompt_optimizer_auth_session';
-const USER_EMAIL_KEY = 'prompt_optimizer_user_email';
-
-// Cookie Helpers for user session & history tracking
-function getCookie(name: string): string | null {
-  try {
-    const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
-    return match ? decodeURIComponent(match[2]) : null;
-  } catch {
-    return null;
-  }
-}
-
-function setCookie(name: string, value: string, days = 30) {
-  try {
-    const expires = new Date(Date.now() + days * 864e5).toUTCString();
-    document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Lax`;
-  } catch {
-    // ignore
-  }
-}
-
-function deleteCookie(name: string) {
-  try {
-    document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
-  } catch {
-    // ignore
-  }
-}
+const HISTORY_STORAGE_KEY = 'prompt_optimizer_history_v2';
 
 const INITIAL_SLOTS: PromptSlot[] = [
   {
@@ -96,28 +67,6 @@ Provide complete refactored code without polite disclaimers.`,
 ];
 
 export const App: React.FC = () => {
-  // Current Authenticated User Email
-  const [currentUserEmail, setCurrentUserEmail] = useState<string>(() => {
-    try {
-      return (
-        sessionStorage.getItem(USER_EMAIL_KEY) ||
-        getCookie('prompt_user_id') ||
-        'developer@gmail.com'
-      );
-    } catch {
-      return 'developer@gmail.com';
-    }
-  });
-
-  // Authentication State
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    try {
-      return sessionStorage.getItem(AUTH_KEY) === 'true';
-    } catch {
-      return false;
-    }
-  });
-
   // Slots (Separate box for each model)
   const [slots, setSlots] = useState<PromptSlot[]>(INITIAL_SLOTS);
   const [selectedMode, setSelectedMode] = useState<CompressionMode>('production_balanced');
@@ -126,76 +75,34 @@ export const App: React.FC = () => {
   const [synthesis, setSynthesis] = useState<SynthesisResult | null>(null);
   const [isCompiling, setIsCompiling] = useState<boolean>(false);
 
-  // Past History (User-Scoped: stored via cloud server, local server, & cookie/storage)
-  const [history, setHistory] = useState<HistoryItem[]>([]);
-
-  // Function to load history for a specific user
-  const loadUserHistory = useCallback(async (userEmail: string) => {
-    const cleanEmail = userEmail.toLowerCase().trim();
-    if (!cleanEmail) return;
-
-    // 1. Try fetching from Cloud / Local Server
+  // Past History
+  const [history, setHistory] = useState<HistoryItem[]>(() => {
     try {
-      const res = await fetch(`/api/history?userId=${encodeURIComponent(cleanEmail)}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.history && Array.isArray(data.history) && data.history.length > 0) {
-          setHistory(data.history);
-          return;
-        }
-      }
-    } catch {
-      // Backend offline or unreachable, fall back to local store
-    }
-
-    // 2. Fall back to user-scoped local storage
-    try {
-      const userKey = `prompt_optimizer_history_${cleanEmail}`;
-      const saved = localStorage.getItem(userKey);
+      const saved = localStorage.getItem(HISTORY_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          setHistory(parsed);
-          return;
-        }
+        if (Array.isArray(parsed)) return parsed;
       }
     } catch {
       // ignore
     }
+    return [];
+  });
 
-    // If no existing history found, start with empty list
-    setHistory([]);
-  }, []);
-
-  // Sync user-specific history on mount or when user changes
-  useEffect(() => {
-    if (isAuthenticated && currentUserEmail) {
-      loadUserHistory(currentUserEmail);
-    }
-  }, [isAuthenticated, currentUserEmail, loadUserHistory]);
-
-  // Synchronize history changes to Server, LocalStorage, and Cookie
-  const syncHistoryToStorage = useCallback(async (newHistory: HistoryItem[], userEmail: string) => {
-    const cleanEmail = userEmail.toLowerCase().trim();
-    if (!cleanEmail) return;
-
-    // 1. Save to User-Scoped LocalStorage
+  // Synchronize history changes to LocalStorage and Server
+  const syncHistoryToStorage = useCallback(async (newHistory: HistoryItem[]) => {
     try {
-      localStorage.setItem(`prompt_optimizer_history_${cleanEmail}`, JSON.stringify(newHistory));
+      localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(newHistory));
     } catch {
       // ignore
     }
 
-    // 2. Refresh Cookie for user session identification
-    setCookie('prompt_user_id', cleanEmail, 30);
-
-    // 3. Save to Cloud / Local Server History API
     try {
       await fetch('/api/history', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: cleanEmail,
+          userId: 'default_workspace',
           history: newHistory
         })
       });
@@ -231,7 +138,6 @@ export const App: React.FC = () => {
 
       setSynthesis(result);
 
-      // Add to past history if requested
       if (addToHistory && result && result.masterPrompt) {
         const primaryModel = validSlots[0]?.platform || 'custom';
         const modelNames = validSlots.map(s => s.name).join(' + ');
@@ -254,7 +160,7 @@ export const App: React.FC = () => {
 
         setHistory(prev => {
           const updated = [newHistItem, ...prev.filter(h => h.id !== newHistItem.id)].slice(0, 30);
-          syncHistoryToStorage(updated, currentUserEmail);
+          syncHistoryToStorage(updated);
           return updated;
         });
       }
@@ -285,14 +191,14 @@ export const App: React.FC = () => {
 
         setHistory(prev => {
           const updated = [newHistItem, ...prev.filter(h => h.id !== newHistItem.id)].slice(0, 30);
-          syncHistoryToStorage(updated, currentUserEmail);
+          syncHistoryToStorage(updated);
           return updated;
         });
       }
     } finally {
       setIsCompiling(false);
     }
-  }, [currentUserEmail, syncHistoryToStorage]);
+  }, [syncHistoryToStorage]);
 
   // Initial compilation on mount
   useEffect(() => {
@@ -359,18 +265,17 @@ export const App: React.FC = () => {
     e.stopPropagation();
     setHistory(prev => {
       const updated = prev.filter(item => item.id !== id);
-      syncHistoryToStorage(updated, currentUserEmail);
+      syncHistoryToStorage(updated);
       return updated;
     });
   };
 
-  // Flash / wipe all history completely (both server, local, and cookie)
+  // Wipe all history
   const handleClearHistory = () => {
     setHistory([]);
-    syncHistoryToStorage([], currentUserEmail);
+    syncHistoryToStorage([]);
     try {
-      localStorage.removeItem(`prompt_optimizer_history_${currentUserEmail}`);
-      localStorage.removeItem('prompt_optimizer_history_v2');
+      localStorage.removeItem(HISTORY_STORAGE_KEY);
       localStorage.removeItem('prompt_optimizer_history');
     } catch {
       // ignore
@@ -395,34 +300,6 @@ export const App: React.FC = () => {
     }
   };
 
-  // Login handler: Authenticates and loads user-scoped history
-  const handleLogin = (email: string) => {
-    const cleanEmail = email.trim().toLowerCase();
-    setCurrentUserEmail(cleanEmail);
-    setIsAuthenticated(true);
-
-    try {
-      sessionStorage.setItem(AUTH_KEY, 'true');
-      sessionStorage.setItem(USER_EMAIL_KEY, cleanEmail);
-      setCookie('prompt_user_id', cleanEmail, 30);
-    } catch {
-      // ignore
-    }
-
-    loadUserHistory(cleanEmail);
-  };
-
-  // Logout handler
-  const handleLogout = () => {
-    setIsAuthenticated(false);
-    try {
-      sessionStorage.removeItem(AUTH_KEY);
-      sessionStorage.removeItem(USER_EMAIL_KEY);
-    } catch {
-      // ignore
-    }
-  };
-
   // Build original prompt combined string for the Compare view
   const originalPromptCombined = slots
     .filter(s => s.enabled && s.prompt.trim())
@@ -431,11 +308,6 @@ export const App: React.FC = () => {
 
   const primaryActivePlatform = slots.find(s => s.enabled)?.platform || 'chatgpt';
 
-  // If not authenticated, render the high animated Login Page!
-  if (!isAuthenticated) {
-    return <LoginPage onLogin={handleLogin} />;
-  }
-
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans relative overflow-x-hidden mesh-dot-grid selection:bg-indigo-500/20 selection:text-indigo-900 animate-in fade-in duration-300">
       {/* 3D Ambient Flowing Animated Aurora Blobs */}
@@ -443,18 +315,16 @@ export const App: React.FC = () => {
       <div className="aurora-blob-2 top-80 -right-36" />
       <div className="aurora-blob-3 -bottom-28 left-1/4" />
 
-      {/* Modern 3D Header with User Identity & Logout */}
+      {/* Modern 3D Header */}
       <Header
         onReset={handleReset}
         savedCount={history.length}
-        onLogout={handleLogout}
-        currentUserEmail={currentUserEmail}
       />
 
       {/* Main Content Area: Flow from Top (Inputs) to Bottom (Optimized Result & Analysis) */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 relative z-10">
         
-        {/* Top Section: Past History (Scoped per logged-in user) */}
+        {/* Top Section: Past History */}
         <PromptHistory
           history={history}
           onSelectHistory={handleSelectHistory}
@@ -500,7 +370,7 @@ export const App: React.FC = () => {
 
       </main>
 
-      {/* Footer with logged-in user cloud indicator */}
+      {/* Footer */}
       <footer className="border-t border-slate-200/80 bg-white/80 backdrop-blur-md py-4 text-center text-xs text-slate-500 relative z-10">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
           <p className="font-semibold text-slate-700">
@@ -508,7 +378,7 @@ export const App: React.FC = () => {
           </p>
           <div className="flex items-center space-x-2 text-[11px] font-mono text-slate-400">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span>User Cloud Sync: <span className="text-indigo-600 font-bold">{currentUserEmail}</span> &bull; ₹ Rupee Engine Active</span>
+            <span>₹ Rupee Token Engine Active</span>
           </div>
         </div>
       </footer>
