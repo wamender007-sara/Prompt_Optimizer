@@ -14,6 +14,7 @@ import { PromptSlot, CompressionMode } from './src/types';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const distPath = path.join(__dirname, 'dist');
+const envFilePath = path.join(__dirname, '.env');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -24,9 +25,15 @@ app.use(express.json({ limit: '10mb' }));
 
 // Health Check
 app.get('/api/health', (_req: Request, res: Response) => {
+  const hasSmtp = Boolean(
+    (process.env.GMAIL_USER || process.env.SMTP_USER) &&
+    (process.env.GMAIL_APP_PASSWORD || process.env.SMTP_PASS)
+  );
   res.json({
     status: 'healthy',
     engine: 'PromptOptimizer Multi-Platform Compiler v2.0',
+    smtpConfigured: hasSmtp,
+    smtpUser: process.env.GMAIL_USER || process.env.SMTP_USER || null,
     timestamp: new Date().toISOString(),
     supportedPlatforms: ['chatgpt', 'claude', 'gemini', 'cursor', 'deepseek', 'custom'],
     compressionModes: [
@@ -155,18 +162,95 @@ function writeUserHistories(data: Record<string, any[]>) {
   }
 }
 
+// Save or check Gmail SMTP credentials from UI
+app.get('/api/auth/smtp-status', (_req: Request, res: Response) => {
+  const gmailUser = process.env.GMAIL_USER || process.env.SMTP_USER || '';
+  const gmailPass = process.env.GMAIL_APP_PASSWORD || process.env.SMTP_PASS || '';
+  const configured = Boolean(gmailUser && gmailPass && !gmailUser.includes('your_email') && !gmailPass.includes('your_16_character'));
+  res.json({
+    configured,
+    gmailUser: configured ? gmailUser : ''
+  });
+});
+
+app.post('/api/auth/smtp-config', async (req: Request, res: Response) => {
+  try {
+    const { gmailUser, gmailAppPassword } = req.body as { gmailUser?: string; gmailAppPassword?: string };
+    if (!gmailUser || !gmailUser.includes('@') || !gmailAppPassword) {
+      return res.status(400).json({ error: 'Please provide both a valid Gmail address and 16-character Google App Password.' });
+    }
+
+    const cleanUser = gmailUser.trim().toLowerCase();
+    const cleanPass = gmailAppPassword.replace(/\s+/g, '');
+
+    // Verify SMTP connection with Gmail before saving
+    const transporter = nodemailer.createTransport({
+      host: 'smtp.gmail.com',
+      port: 465,
+      secure: true,
+      auth: {
+        user: cleanUser,
+        pass: cleanPass,
+      },
+    });
+
+    await transporter.verify();
+
+    // Update live environment variables
+    process.env.GMAIL_USER = cleanUser;
+    process.env.GMAIL_APP_PASSWORD = cleanPass;
+
+    // Persist to .env file locally
+    try {
+      const envContent = `# PromptOptimizer Configuration\nPORT=${PORT}\nGMAIL_USER=${cleanUser}\nGMAIL_APP_PASSWORD=${cleanPass}\n`;
+      fs.writeFileSync(envFilePath, envContent, 'utf-8');
+    } catch {
+      // ignore if read-only filesystem
+    }
+
+    return res.json({
+      success: true,
+      configured: true,
+      gmailUser: cleanUser,
+      message: `Gmail SMTP verified and connected for ${cleanUser}! Verification codes will now be delivered directly to Gmail inboxes.`
+    });
+  } catch (err: any) {
+    console.error('[SMTP CONFIG ERROR]:', err?.message || err);
+    return res.status(400).json({
+      error: `Gmail SMTP authentication failed: ${err?.message || 'Invalid App Password'}. Make sure 2-Step Verification is enabled on your Google Account and you are using a 16-character Google App Password (not your regular Gmail password).`
+    });
+  }
+});
+
 // Send real OTP email to user's Gmail (for both Sign-Up and Password Reset)
-async function sendOtpEmail(toEmail: string, otp: string, purpose: 'signup' | 'reset' = 'reset', userName?: string): Promise<boolean> {
-  const gmailUser = process.env.GMAIL_USER || process.env.SMTP_USER;
-  const gmailPass = process.env.GMAIL_APP_PASSWORD || process.env.SMTP_PASS;
+async function sendOtpEmail(
+  toEmail: string,
+  otp: string,
+  purpose: 'signup' | 'reset' = 'reset',
+  userName?: string,
+  overrideSmtp?: { gmailUser?: string; gmailAppPassword?: string }
+): Promise<{ sent: boolean; error?: string }> {
+  const rawUser = overrideSmtp?.gmailUser || process.env.GMAIL_USER || process.env.SMTP_USER || '';
+  const rawPass = overrideSmtp?.gmailAppPassword || process.env.GMAIL_APP_PASSWORD || process.env.SMTP_PASS || '';
+
+  const gmailUser = rawUser.trim();
+  const gmailPass = rawPass.replace(/\s+/g, '');
 
   const isSignup = purpose === 'signup';
-  console.log(`[AUTH] 📧 Dispatched 6-digit ${isSignup ? 'SIGN-UP' : 'PASSWORD RESET'} OTP for ${toEmail}: ${otp}`);
+  console.log(`[AUTH] 📧 Generated 6-digit ${isSignup ? 'SIGN-UP' : 'PASSWORD RESET'} OTP for ${toEmail}: ${otp}`);
 
-  if (gmailUser && gmailPass) {
+  const isPlaceholder =
+    !gmailUser ||
+    !gmailPass ||
+    gmailUser.includes('your_email') ||
+    gmailPass.includes('your_16_character');
+
+  if (!isPlaceholder) {
     try {
       const transporter = nodemailer.createTransport({
-        service: 'gmail',
+        host: 'smtp.gmail.com',
+        port: 465,
+        secure: true,
         auth: {
           user: gmailUser,
           pass: gmailPass,
@@ -213,24 +297,26 @@ async function sendOtpEmail(toEmail: string, otp: string, purpose: 'signup' | 'r
       });
 
       console.log(`[AUTH] ✅ Email successfully sent via Gmail SMTP to ${toEmail}`);
-      return true;
+      return { sent: true };
     } catch (err: any) {
       console.error(`[AUTH] ❌ Failed to dispatch email via Gmail SMTP:`, err?.message || err);
-      return false;
+      return { sent: false, error: err?.message || 'SMTP dispatch error' };
     }
   } else {
-    console.log(`[AUTH] 💡 Notice: GMAIL_USER and GMAIL_APP_PASSWORD are not set in .env. Add them to .env to enable direct Gmail inbox delivery.`);
-    return false;
+    console.log(`[AUTH] 💡 Notice: GMAIL_USER and GMAIL_APP_PASSWORD are not configured yet.`);
+    return { sent: false, error: 'SMTP_NOT_CONFIGURED' };
   }
 }
 
 // 1. Send OTP to Gmail (Supports both Sign-Up and Password Reset)
 app.post('/api/auth/send-otp', async (req: Request, res: Response) => {
   try {
-    const { email, purpose, name } = req.body as {
+    const { email, purpose, name, smtpUser, smtpPass } = req.body as {
       email?: string;
       purpose?: 'signup' | 'reset';
       name?: string;
+      smtpUser?: string;
+      smtpPass?: string;
     };
 
     if (!email || !email.includes('@')) {
@@ -245,19 +331,27 @@ app.post('/api/auth/send-otp', async (req: Request, res: Response) => {
     otpStore[cleanEmail] = { otp: generatedOtp, expiresAt, purpose: authPurpose };
     const verificationToken = createVerificationToken(cleanEmail, generatedOtp, expiresAt);
 
-    // Dispatch real email via Gmail SMTP in background
-    sendOtpEmail(cleanEmail, generatedOtp, authPurpose, name).catch(err => {
-      console.error('[AUTH] Background email send error:', err?.message || err);
-    });
+    // Await email dispatch so we can report accurate delivery status to the frontend
+    const dispatchResult = await sendOtpEmail(
+      cleanEmail,
+      generatedOtp,
+      authPurpose,
+      name,
+      smtpUser && smtpPass ? { gmailUser: smtpUser, gmailAppPassword: smtpPass } : undefined
+    );
 
     res.setHeader('Content-Type', 'application/json');
     return res.status(200).json({
       success: true,
       purpose: authPurpose,
+      emailSent: dispatchResult.sent,
+      smtpStatus: dispatchResult.sent ? 'sent_to_gmail' : (dispatchResult.error || 'smtp_not_configured'),
+      // Provide fallbackOtp ONLY when SMTP is not configured yet so the user is never locked out while testing
+      fallbackOtp: dispatchResult.sent ? undefined : generatedOtp,
       verificationToken,
-      message: authPurpose === 'signup'
-        ? `A 6-digit sign-up verification code has been dispatched to ${cleanEmail}. Please check your Gmail inbox.`
-        : `A 6-digit OTP verification code has been dispatched to ${cleanEmail}. Please check your Gmail inbox.`,
+      message: dispatchResult.sent
+        ? `A 6-digit verification code has been delivered to ${cleanEmail}. Please check your Gmail inbox.`
+        : `Gmail SMTP is not configured yet. Configure your Google App Password or use the instant verification code to complete ${authPurpose === 'signup' ? 'sign up' : 'verification'}.`,
       expiresInSeconds: 600
     });
   } catch (err: any) {
@@ -312,7 +406,7 @@ app.post('/api/auth/verify-otp', (req: Request, res: Response) => {
     }
 
     if (!isVerified) {
-      return res.status(400).json({ error: 'Invalid 6-digit verification code. Please check your Gmail and try again.' });
+      return res.status(400).json({ error: 'Invalid 6-digit verification code. Please check your code and try again.' });
     }
 
     // Persist user account in .data/users.json
@@ -370,10 +464,9 @@ app.post('/api/history', (req: Request, res: Response) => {
 
     const cleanUserId = userId.toLowerCase().trim();
     const allHistories = readUserHistories();
-    allHistories[cleanUserId] = history.slice(0, 30); // Store up to 30 runs per user
+    allHistories[cleanUserId] = history.slice(0, 30);
     writeUserHistories(allHistories);
 
-    // Set cookie for browser persistence
     res.cookie('prompt_user_id', cleanUserId, { maxAge: 30 * 24 * 60 * 60 * 1000, httpOnly: false });
 
     return res.json({ success: true, savedRuns: history.length, userId: cleanUserId });

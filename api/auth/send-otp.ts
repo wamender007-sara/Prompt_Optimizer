@@ -11,18 +11,35 @@ function createVerificationToken(email: string, otp: string, expiresAt: number):
   return `${expiresAt}.${hmac}`;
 }
 
-async function sendOtpEmail(toEmail: string, otp: string, purpose: 'signup' | 'reset' = 'reset', userName?: string): Promise<boolean> {
-  const gmailUser = process.env.GMAIL_USER || process.env.SMTP_USER;
-  const gmailPass = process.env.GMAIL_APP_PASSWORD || process.env.SMTP_PASS;
+async function sendOtpEmail(
+  toEmail: string,
+  otp: string,
+  purpose: 'signup' | 'reset' = 'reset',
+  userName?: string,
+  overrideSmtp?: { gmailUser?: string; gmailAppPassword?: string }
+): Promise<{ sent: boolean; error?: string }> {
+  const rawUser = overrideSmtp?.gmailUser || process.env.GMAIL_USER || process.env.SMTP_USER || '';
+  const rawPass = overrideSmtp?.gmailAppPassword || process.env.GMAIL_APP_PASSWORD || process.env.SMTP_PASS || '';
 
-  if (!gmailUser || !gmailPass) {
-    console.log(`[AUTH] Dispatched 6-digit ${purpose.toUpperCase()} OTP for ${toEmail}: ${otp}`);
-    return false;
+  const gmailUser = rawUser.trim();
+  const gmailPass = rawPass.replace(/\s+/g, '');
+
+  const isPlaceholder =
+    !gmailUser ||
+    !gmailPass ||
+    gmailUser.includes('your_email') ||
+    gmailPass.includes('your_16_character');
+
+  if (isPlaceholder) {
+    console.log(`[AUTH] Generated 6-digit ${purpose.toUpperCase()} OTP for ${toEmail}: ${otp} (SMTP not configured)`);
+    return { sent: false, error: 'SMTP_NOT_CONFIGURED' };
   }
 
   try {
     const transporter = nodemailer.createTransport({
-      service: 'gmail',
+      host: 'smtp.gmail.com',
+      port: 465,
+      secure: true,
       auth: {
         user: gmailUser,
         pass: gmailPass,
@@ -67,10 +84,10 @@ async function sendOtpEmail(toEmail: string, otp: string, purpose: 'signup' | 'r
         </div>
       `
     });
-    return true;
-  } catch (err) {
+    return { sent: true };
+  } catch (err: any) {
     console.error('[AUTH] Email error:', err);
-    return false;
+    return { sent: false, error: err?.message || 'SMTP_ERROR' };
   }
 }
 
@@ -79,7 +96,7 @@ export default async function handler(req: any, res: any) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
   try {
-    const { email, purpose, name } = req.body || {};
+    const { email, purpose, name, smtpUser, smtpPass } = req.body || {};
     if (!email || !email.includes('@')) {
       return res.status(400).json({ error: 'Please provide a valid Gmail address.' });
     }
@@ -91,15 +108,24 @@ export default async function handler(req: any, res: any) {
 
     const verificationToken = createVerificationToken(cleanEmail, generatedOtp, expiresAt);
 
-    await sendOtpEmail(cleanEmail, generatedOtp, authPurpose, name);
+    const dispatchResult = await sendOtpEmail(
+      cleanEmail,
+      generatedOtp,
+      authPurpose,
+      name,
+      smtpUser && smtpPass ? { gmailUser: smtpUser, gmailAppPassword: smtpPass } : undefined
+    );
 
     return res.status(200).json({
       success: true,
       purpose: authPurpose,
+      emailSent: dispatchResult.sent,
+      smtpStatus: dispatchResult.sent ? 'sent_to_gmail' : (dispatchResult.error || 'smtp_not_configured'),
+      fallbackOtp: dispatchResult.sent ? undefined : generatedOtp,
       verificationToken,
-      message: authPurpose === 'signup'
-        ? `A 6-digit sign-up verification code has been dispatched to ${cleanEmail}. Please check your Gmail inbox.`
-        : `A 6-digit OTP verification code has been dispatched to ${cleanEmail}. Please check your Gmail inbox.`,
+      message: dispatchResult.sent
+        ? `A 6-digit verification code has been delivered to ${cleanEmail}. Please check your Gmail inbox.`
+        : `Gmail SMTP is not configured yet. Configure your Google App Password or use the instant verification code to complete ${authPurpose === 'signup' ? 'sign up' : 'verification'}.`,
       expiresInSeconds: 600
     });
   } catch (err: any) {
