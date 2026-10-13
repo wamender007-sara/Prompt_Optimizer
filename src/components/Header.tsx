@@ -1,19 +1,16 @@
 import React from 'react';
 import { 
-  Sparkles, 
-  RotateCcw
+  Sparkles
 } from 'lucide-react';
 
 interface HeaderProps {
-  onReset: () => void;
-  savedCount: number;
+  onReset?: () => void;
+  savedCount?: number;
 }
 
-export const Header: React.FC<HeaderProps> = ({
-  onReset,
-}) => {
+export const Header: React.FC<HeaderProps> = () => {
   return (
-    <header className="border-b border-slate-200/80 bg-white/85 backdrop-blur-xl sticky top-0 z-40 relative shadow-[0_4px_25px_-5px_rgba(99,102,241,0.06)]">
+    <header className="border-b border-slate-200/80 bg-white/95 sticky top-0 z-40 shadow-[0_4px_25px_-5px_rgba(99,102,241,0.06)]">
       {/* Top Animated Continuous Flow Gradient Line */}
       <div className="absolute top-0 left-0 right-0 h-[3.5px] flow-accent-line z-50" />
 
@@ -44,25 +41,13 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Right Controls: Actions & Status */}
+        {/* Right Controls: Status */}
         <div className="flex items-center space-x-2.5">
-          
-          {/* Reset / New Prompt */}
-          <button
-            onClick={onReset}
-            title="Start fresh prompt"
-            className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:text-indigo-700 bg-white hover:bg-slate-50 rounded-xl transition-all border border-slate-200 hover:border-indigo-300 active:scale-95 shadow-2xs"
-          >
-            <RotateCcw className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">New Prompt</span>
-          </button>
-
           {/* Compiler Active Status Pill */}
           <div className="hidden sm:flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-emerald-50/80 border border-emerald-200/80 text-[11px] text-emerald-700 font-mono font-bold shadow-2xs">
             <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
             <span>AI Ready</span>
           </div>
-
         </div>
 
       </div>

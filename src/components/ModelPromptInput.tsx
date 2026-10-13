@@ -144,10 +144,10 @@ Provide complete refactored code without polite disclaimers.`,
   }
 };
 
-const COMPRESSION_MODES: { id: CompressionMode; label: string; icon: string; desc: string }[] = [
-  { id: 'production_balanced', label: 'Balanced', icon: '⚡', desc: 'Preserves critical logic, cuts filler' },
-  { id: 'ultra_distilled', label: 'Ultra Distilled', icon: '🎯', desc: 'Maximum compression & token efficiency' },
-  { id: 'structured_xml', label: 'Structured XML', icon: '📐', desc: 'Strict tags & clear separation' },
+const COMPRESSION_MODES: { id: CompressionMode; label: string; desc: string }[] = [
+  { id: 'production_balanced', label: 'Balanced', desc: 'Preserves critical logic, cuts filler' },
+  { id: 'ultra_distilled', label: 'Ultra Distilled', desc: 'Maximum compression & token efficiency' },
+  { id: 'structured_xml', label: 'Structured XML', desc: 'Strict tags & clear separation' },
 ];
 
 interface ModelPromptInputProps {
@@ -258,15 +258,6 @@ export const ModelPromptInput: React.FC<ModelPromptInputProps> = ({
 
           {/* Quick Toolbar */}
           <div className="flex items-center space-x-2">
-            <button
-              onClick={onFillAllSamples}
-              title="Fill all active boxes with sample prompts"
-              className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-xl transition-all active:scale-95 shadow-2xs"
-            >
-              <Sparkles className="h-3.5 w-3.5 text-indigo-600" />
-              <span>Fill Samples</span>
-            </button>
-
             <button
               onClick={onClearAllSlots}
               title="Clear all prompt boxes"
@@ -434,14 +425,6 @@ export const ModelPromptInput: React.FC<ModelPromptInputProps> = ({
 
                     {/* Quick Box Actions */}
                     <div className="flex items-center space-x-1">
-                      <button
-                        onClick={() => onUpdateSlot(slot.id, { prompt: cfg.samplePrompt, enabled: true })}
-                        title={`Fill with sample for ${cfg.badge}`}
-                        className="px-2 py-0.5 text-[10px] font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-md transition-all active:scale-95"
-                      >
-                        Sample
-                      </button>
-
                       {slot.prompt && (
                         <button
                           onClick={() => handleCopySlot(slot.id, slot.prompt)}
@@ -524,13 +507,12 @@ export const ModelPromptInput: React.FC<ModelPromptInputProps> = ({
                 key={m.id}
                 onClick={() => onModeChange(m.id)}
                 title={m.desc}
-                className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                className={`flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                   isSelected
                     ? 'bg-indigo-600 text-white shadow-xs'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-white'
                 }`}
               >
-                <span>{m.icon}</span>
                 <span>{m.label}</span>
               </button>
             );

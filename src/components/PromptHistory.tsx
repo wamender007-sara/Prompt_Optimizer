@@ -117,7 +117,7 @@ export const PromptHistory: React.FC<PromptHistoryProps> = ({
                   className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold text-rose-700 hover:text-white bg-rose-50 hover:bg-rose-600 border border-rose-200 hover:border-rose-600 rounded-xl transition-all active:scale-95 shadow-2xs ml-1"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
-                  <span>⚡ Flash Memory</span>
+                  <span>Flash Memory</span>
                 </button>
               </>
             )}

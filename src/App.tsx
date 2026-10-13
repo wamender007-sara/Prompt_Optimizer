@@ -13,56 +13,22 @@ const INITIAL_SLOTS: PromptSlot[] = [
     id: 'slot-chatgpt',
     platform: 'chatgpt',
     name: 'ChatGPT 4o',
-    prompt: `Act as a world-renowned Senior Software Architect with 20+ years of experience.
-I need you to thoroughly examine my code. Please make sure to point out any code smells, eliminate all vulnerabilities, and make it look clean and modern.
-Follow SOLID principles and please explain every single step kindly as if I am learning. Also feel free to add nice greetings and have fun with it!`,
+    prompt: '',
     enabled: true
   },
   {
     id: 'slot-claude',
     platform: 'claude',
     name: 'Claude 3.5 Sonnet',
-    prompt: `Analyze the provided TypeScript snippet with strict adherence to architectural resilience and type soundness.
-<constraints>
-- Eliminate all usage of 'any', replacing with strict generics, unknown with type guards, or discriminated unions.
-- Enforce immutable data structures (Readonly<T>, ReadonlyArray<T>, Object.freeze).
-- Flag any asynchronous unhandled rejections or memory leaks.
-</constraints>
-<output_format>
-Output only: 1. Vulnerability Matrix; 2. Refactored Codebase; 3. Verification Proofs.
-No conversational preamble or polite pleasantries.`,
+    prompt: '',
     enabled: true
   },
   {
     id: 'slot-gemini',
     platform: 'gemini',
     name: 'Gemini 2.0 / 1.5 Pro',
-    prompt: `You are an expert Google engineer specializing in V8 engine optimization and high-throughput Node.js microservices.
-Examine this implementation:
-1. Benchmark potential and identify hidden CPU spikes, de-optimizations, and GC pressure in V8.
-2. Verify cross-service resilience: circuit breaker patterns and exponential backoff with jitter.
-3. Produce tabular summaries comparing Before vs. After memory complexity.`,
+    prompt: '',
     enabled: true
-  },
-  {
-    id: 'slot-deepseek',
-    platform: 'deepseek',
-    name: 'DeepSeek V3 / R1',
-    prompt: `Act as an elite algorithmic competitive programming master.
-Analyze this logic for edge case overflows, Big-O algorithmic complexity, memory heap allocation bottlenecks, and concurrency deadlocks.
-Provide complete refactored code without polite disclaimers.`,
-    enabled: false
-  },
-  {
-    id: 'slot-cursor',
-    platform: 'cursor',
-    name: 'Cursor / Copilot',
-    prompt: `// .cursorrules context: High-performance TypeScript Node.js backend
-// Focus: Strict AST refactor, zero any, production safety
-- Always return exact code replacements, no placeholder comments like '// ... rest of code'.
-- Implement strict null checks and exhaustive switch matching with assertNever.
-- Add comprehensive JSDoc annotations with @param, @returns, and @throws.`,
-    enabled: false
   }
 ];
 
@@ -217,7 +183,7 @@ export const App: React.FC = () => {
       id: `slot-${platform}-${Date.now()}`,
       platform,
       name: config?.name || 'Custom Model',
-      prompt: config?.samplePrompt || '',
+      prompt: '',
       enabled: true
     };
     setSlots(prev => [...prev, newSlot]);
@@ -230,7 +196,13 @@ export const App: React.FC = () => {
 
   // Quick fill samples
   const handleFillAllSamples = () => {
-    setSlots(INITIAL_SLOTS);
+    const sampleSlots = INITIAL_SLOTS.map(s => ({
+      ...s,
+      prompt: ALL_MODEL_CONFIGS[s.platform]?.samplePrompt || '',
+      enabled: true
+    }));
+    setSlots(sampleSlots);
+    return sampleSlots;
   };
 
   // Clear all slots
@@ -291,12 +263,11 @@ export const App: React.FC = () => {
 
   // Quick example loader
   const handleLoadExample = (exampleId: string) => {
+    const sampleSlots = handleFillAllSamples();
     if (exampleId === 'example-code') {
-      handleFillAllSamples();
-      executeCompilation(INITIAL_SLOTS, selectedMode, true);
+      executeCompilation(sampleSlots, selectedMode, true);
     } else {
-      handleFillAllSamples();
-      executeCompilation(INITIAL_SLOTS, 'ultra_distilled', true);
+      executeCompilation(sampleSlots, 'ultra_distilled', true);
     }
   };
 
@@ -309,11 +280,13 @@ export const App: React.FC = () => {
   const primaryActivePlatform = slots.find(s => s.enabled)?.platform || 'chatgpt';
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans relative overflow-x-hidden mesh-dot-grid selection:bg-indigo-500/20 selection:text-indigo-900 animate-in fade-in duration-300">
-      {/* 3D Ambient Flowing Animated Aurora Blobs */}
-      <div className="aurora-blob-1 -top-24 -left-28" />
-      <div className="aurora-blob-2 top-80 -right-36" />
-      <div className="aurora-blob-3 -bottom-28 left-1/4" />
+    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans relative mesh-dot-grid selection:bg-indigo-500/20 selection:text-indigo-900">
+      {/* Ambient Background Layer (isolated fixed container so it never affects scroll or layout) */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+        <div className="aurora-blob-1 -top-24 -left-28" />
+        <div className="aurora-blob-2 top-80 -right-36" />
+        <div className="aurora-blob-3 -bottom-28 left-1/4" />
+      </div>
 
       {/* Modern 3D Header */}
       <Header
@@ -348,6 +321,9 @@ export const App: React.FC = () => {
             }}
             onOptimize={() => {
               executeCompilation(slots, selectedMode, true);
+              setTimeout(() => {
+                document.getElementById('optimized-result-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }, 100);
             }}
             onFillAllSamples={handleFillAllSamples}
             onClearAllSlots={handleClearAllSlots}
@@ -355,7 +331,7 @@ export const App: React.FC = () => {
         </section>
 
         {/* Bottom Main: Optimized Prompt at the Bottom with Bottom Designed Analysis in ₹ */}
-        <section aria-label="Optimized Result & Analysis" className="w-full">
+        <section id="optimized-result-section" aria-label="Optimized Result & Analysis" className="w-full scroll-mt-20">
           <OptimizedResultView
             synthesis={synthesis}
             originalPrompt={originalPromptCombined}
@@ -371,7 +347,7 @@ export const App: React.FC = () => {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-slate-200/80 bg-white/80 backdrop-blur-md py-4 text-center text-xs text-slate-500 relative z-10">
+      <footer className="border-t border-slate-200/80 bg-white/95 py-4 text-center text-xs text-slate-500 relative z-10">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
           <p className="font-semibold text-slate-700">
             PromptOptimizer &bull; Ultra-Simple 3D Multi-Model Prompt Synthesizer
