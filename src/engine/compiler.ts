@@ -129,8 +129,8 @@ export function compilePrompts(
   // 3. Extract Core Intent & Directives
   const { coreIntent, preservedDirectives, conflictMatrix, uniqueInsightsByPlatform } = extractDirectivesAndConflicts(activeSlots);
 
-  // 4. Synthesize Master Prompt based on mode
-  const masterPrompt = generateMasterPrompt(mode, coreIntent, preservedDirectives, conflictMatrix, activeSlots);
+  // 4. Synthesize Master Prompt based on mode (pass cleaned text so user content is actually used)
+  const masterPrompt = generateMasterPrompt(mode, coreIntent, preservedDirectives, conflictMatrix, cleanedSlots.map(cs => ({ ...cs, prompt: cs.cleanedPrompt })));
 
   // 5. Calculate Final Metrics
   const compressedChars = masterPrompt.length;
@@ -583,43 +583,88 @@ export function generateMasterPrompt(
   conflicts: ConflictItem[],
   slots: PromptSlot[]
 ): string {
+  // ─── Build the actual user content (fluff-stripped) ────────────────────────
+  const userBlocks = slots
+    .filter(s => s.enabled && s.prompt.trim().length > 0)
+    .map(s => s.prompt.trim());
+
+  const hasMeaningfulContent = userBlocks.some(b => b.length >= 10);
+
+  // If the user typed something too short or random we still use it verbatim
+  // so at minimum the output reflects what they actually wrote.
+  const combinedUserText = userBlocks.join('\n\n');
+
+  // Sentence-split each block into bullet lines for distilled modes
+  const userBullets = userBlocks
+    .flatMap(block =>
+      block
+        .split(/\n|(?<=[.!?])\s+/)
+        .map(l => l.trim())
+        .filter(l => l.length > 3)
+    );
+
+  // Platform labels (only shown in multi-slot mode)
+  const multiSlot = slots.filter(s => s.enabled && s.prompt.trim()).length > 1;
+  const labelledBlocks = slots
+    .filter(s => s.enabled && s.prompt.trim())
+    .map(s => `[${s.name}]\n${s.prompt.trim()}`)
+    .join('\n\n');
+
+  // Directives from the knowledge base (if any were extracted for known domains)
   const constraintsList = directives
     .filter(d => d.retained)
     .map((d, i) => `${i + 1}. [${d.category.toUpperCase().replace('_', ' ')}] ${d.text}`)
     .join('\n');
 
+  const hasKnownDomainDirectives = directives.some(
+    d => d.id !== 'cd-1' // 'cd-1' is the generic fallback placeholder
+  );
+
   switch (mode) {
     case 'ultra_distilled': {
-      // 60-80% token savings: telegraphic, dense, zero filler
-      const telegraphic = directives
-        .filter(d => d.retained)
-        .map(d => `• ${d.text}`)
-        .join('\n');
+      // Maximum compression — telegraphic imperative lines from the user's actual text
+      const lines = userBullets.length > 0
+        ? userBullets.map(l => `• ${l}`).join('\n')
+        : `• ${combinedUserText}`;
 
-      return `TASK: ${coreIntent}
+      return `TASK: ${hasMeaningfulContent ? coreIntent : combinedUserText}
 MANDATES:
-${telegraphic}
-OUTPUT: Production-ready code/tables/artifacts only. Zero pleasantries. Zero conversational filler.`;
+${lines}
+OUTPUT: Production-ready artifacts only. Zero pleasantries. Zero conversational filler.`;
     }
 
     case 'structured_xml': {
-      // Enterprise XML tags
+      // Wrap the user's actual text in structured XML tags
+      const constraintNodes = directives
+        .filter(d => d.category === 'hard_constraint')
+        .map(d => `  <rule>${d.text}</rule>`)
+        .join('\n');
+
+      const edgeNodes = directives
+        .filter(d => d.category === 'edge_case')
+        .map(d => `  <edge_case>${d.text}</edge_case>`)
+        .join('\n');
+
       return `<system>
-You are an authoritative, zero-defect synthesis engine.
-Target Objective: ${coreIntent}
+You are an authoritative, zero-defect execution engine.
+${hasMeaningfulContent ? `Objective: ${coreIntent}` : ''}
 </system>
 
+<prompt>
+${multiSlot ? labelledBlocks : combinedUserText}
+</prompt>
+${constraintNodes ? `
 <constraints>
-${directives.filter(d => d.category === 'hard_constraint').map(d => `  <rule>${d.text}</rule>`).join('\n')}
-</constraints>
-
+${constraintNodes}
+</constraints>` : ''}
+${edgeNodes ? `
 <edge_cases>
-${directives.filter(d => d.category === 'edge_case').map(d => `  <edge_case>${d.text}</edge_case>`).join('\n')}
-</edge_cases>
-
+${edgeNodes}
+</edge_cases>` : ''}
+${conflicts.length ? `
 <reconciliation_rules>
 ${conflicts.map(c => `  <resolution conflict="${c.nature}">${c.reconciliation}</resolution>`).join('\n')}
-</reconciliation_rules>
+</reconciliation_rules>` : ''}
 
 <output_schema>
 Strict adherence to the requested deliverable format. No conversational boilerplate.
@@ -631,11 +676,14 @@ Provide verifiable, deterministic, copy-paste ready artifacts.
       return `### System Directive: Gemini Multi-Modal Engine
 **Primary Objective**: ${coreIntent}
 
-#### Execution Guidelines & Grounding:
-${constraintsList}
-
+#### Prompt Content:
+${combinedUserText}
+${constraintsList ? `
+#### Execution Guidelines:
+${constraintsList}` : ''}
+${conflicts.length ? `
 #### Conflict Harmonization:
-${conflicts.map(c => `- **${c.nature}**: ${c.reconciliation}`).join('\n')}
+${conflicts.map(c => `- **${c.nature}**: ${c.reconciliation}`).join('\n')}` : ''}
 
 #### Structured Delivery:
 - Structure outputs utilizing high-readability Markdown data tables.
@@ -645,105 +693,111 @@ ${conflicts.map(c => `- **${c.nature}**: ${c.reconciliation}`).join('\n')}
 
     case 'target_claude': {
       return `<system_instructions>
-Act with absolute intellectual rigor, adhering to structural clarity and mathematical/formal correctness.
-Objective: ${coreIntent}
-
+${hasMeaningfulContent ? `Objective: ${coreIntent}` : ''}
+${directives.length ? `
 <guidelines>
 ${directives.map(d => `- ${d.text}`).join('\n')}
-</guidelines>
-
+</guidelines>` : ''}
+${conflicts.length ? `
 <reconciliation>
 ${conflicts.map(c => `- ${c.nature}: ${c.reconciliation}`).join('\n')}
-</reconciliation>
+</reconciliation>` : ''}
 
 <output_format>
-Emit strictly the final technical artifacts. No introductory banter ("Sure, here is..."), no concluding pleasantries. Use code blocks with exact language specifiers.
+Emit strictly the final technical artifacts. No introductory banter ("Sure, here is..."), no concluding pleasantries.
 </output_format>
-</system_instructions>`;
+</system_instructions>
+
+${combinedUserText}`;
     }
 
     case 'target_chatgpt': {
       return `### Operational Directive
-**Objective**: ${coreIntent}
-
+${hasMeaningfulContent ? `**Objective**: ${coreIntent}\n` : ''}
+${combinedUserText}
+${constraintsList ? `
 ### Essential Requirements:
-${constraintsList}
-
+${constraintsList}` : ''}
+${conflicts.length ? `
 ### Resolution Matrix:
-${conflicts.map(c => `- **${c.nature}**: ${c.reconciliation}`).join('\n')}
+${conflicts.map(c => `- **${c.nature}**: ${c.reconciliation}`).join('\n')}` : ''}
 
 ### Output Standard:
 - Deliver production-ready code and structured tabular breakdowns.
-- Format all code in standard syntax-highlighted blocks.
 - Ensure all constraints are verified before final output generation.`;
     }
 
     case 'target_cursor': {
       return `// .cursorrules Master Specification
-// Target: ${coreIntent}
+${hasMeaningfulContent ? `// Target: ${coreIntent}` : ''}
 // Strict Mode: Enabled
 
+${combinedUserText}
+${directives.length ? `
 [CONSTRAINTS]
-${directives.map(d => `- ${d.text}`).join('\n')}
-
+${directives.map(d => `- ${d.text}`).join('\n')}` : ''}
+${conflicts.length ? `
 [CONFLICT_RESOLUTIONS]
-${conflicts.map(c => `- ${c.nature} => ${c.reconciliation}`).join('\n')}
+${conflicts.map(c => `- ${c.nature} => ${c.reconciliation}`).join('\n')}` : ''}
 
 [RULES]
 - Return complete drop-in replacements only. No '// ... rest of code' placeholders.
-- Maintain zero conversational filler; code and structured schema only.
-- Adhere strictly to language idioms and defensive boundary assertions.`;
+- Maintain zero conversational filler; code and structured schema only.`;
     }
 
     case 'target_deepseek': {
       return `<think>
-Deconstruct the target objective: ${coreIntent}
-Verify boundary assumptions, failure modes, and game-theoretic/mathematical soundness.
-Check all edge cases:
-${directives.filter(d => d.category === 'edge_case').map(d => `- ${d.text}`).join('\n')}
-Harmonize contradictory directives:
-${conflicts.map(c => `- ${c.nature}: ${c.reconciliation}`).join('\n')}
+${hasMeaningfulContent ? `Objective: ${coreIntent}` : ''}
+${directives.filter(d => d.category === 'edge_case').length ? `Edge cases:\n${directives.filter(d => d.category === 'edge_case').map(d => `- ${d.text}`).join('\n')}` : ''}
+${conflicts.length ? `Conflicts:\n${conflicts.map(c => `- ${c.nature}: ${c.reconciliation}`).join('\n')}` : ''}
 </think>
 
-Execute the final synthesis with unyielding deterministic precision based on:
-${constraintsList}
-
-Deliver only verified, high-density artifacts.`;
+${combinedUserText}
+${constraintsList ? `
+Constraints:
+${constraintsList}` : ''}`;
     }
 
     case 'target_perplexity': {
-      return `### Search & Verification System Directive: Perplexity Sonar Engine
-**Primary Objective**: ${coreIntent}
+      return `### Search & Verification System Directive
+${hasMeaningfulContent ? `**Primary Objective**: ${coreIntent}\n` : ''}
+${combinedUserText}
+${constraintsList ? `
+#### Empirical Constraints:
+${constraintsList}` : ''}
 
-#### Web Grounding & Empirical Constraints:
-${constraintsList}
-
-#### Harmonized Conflict Resolutions:
-${conflicts.map(c => `- **${c.nature}**: ${c.reconciliation}`).join('\n')}
-
-#### Verified Citation & Schema Requirements:
-- Cross-reference claims against authoritative primary documentation and official specifications.
+#### Citation Requirements:
+- Cross-reference claims against authoritative primary documentation.
 - Provide structured markdown tables with explicit recency timestamps and source citations.
 - Suppress speculation; ground all assertions strictly in verified facts.`;
     }
 
     case 'production_balanced':
     default: {
-      return `## Master System Prompt: High-Precision Multi-Platform Synthesis
+      // ── Multi-slot: show source labels + cleaned text, then known-domain directives ──
+      if (multiSlot) {
+        return `## Synthesized Master Prompt (${slots.filter(s => s.enabled && s.prompt.trim()).length}-Model Distillation)
 
-### 1. Core Objective
-${coreIntent}
+### Core Objective
+${hasMeaningfulContent ? coreIntent : 'Execute the combined directives below with precision.'}
 
-### 2. Preserved Critical Directives
-${constraintsList}
+### Distilled Instructions
+${labelledBlocks}
+${hasKnownDomainDirectives ? `
+### Extracted Critical Constraints
+${constraintsList}` : ''}
+${conflicts.length ? `
+### Reconciled Conflicts
+${conflicts.map(c => `- **${c.nature}**: ${c.reconciliation}`).join('\n')}` : ''}
 
-### 3. Reconciled Conflict Directives
-${conflicts.map(c => `- **${c.nature}**: ${c.reconciliation}`).join('\n')}
+### Output Standard
+- Direct, production-ready artifacts only.
+- Zero conversational overhead or pleasantries.
+- Verify all constraints before generating output.`;
+      }
 
-### 4. Output Specification
-- **Clean Markdown / Code**: Provide direct, drop-in replacement artifacts.
-- **Zero Conversational Overhead**: Omit boilerplate pleasantries, disclaimers, and generic commentary.
-- **Verification Guarantee**: Ensure all boundary conditions and security constraints are satisfied.`;
+      // ── Single-slot: output the cleaned prompt, no extra template wrapper ──
+      return combinedUserText;
     }
   }
 }

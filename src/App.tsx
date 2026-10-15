@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Header } from './components/Header';
 import { PromptHistory, HistoryItem } from './components/PromptHistory';
 import { ModelPromptInput, ALL_MODEL_CONFIGS } from './components/ModelPromptInput';
@@ -166,10 +166,7 @@ export const App: React.FC = () => {
     }
   }, [syncHistoryToStorage]);
 
-  // Initial compilation on mount
-  useEffect(() => {
-    executeCompilation(slots, selectedMode, false);
-  }, []);
+  // (no auto-compile on mount – the result panel stays blank until the user clicks Synthesize)
 
   // Update specific model box
   const handleUpdateSlot = (id: string, updates: Partial<PromptSlot>) => {
