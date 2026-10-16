@@ -375,18 +375,40 @@ export const ModelPromptInput: React.FC<ModelPromptInputProps> = ({
             const tokens = estimateTokens(slot.prompt);
             const chars = slot.prompt.length;
 
+            // ── Live token bar config ──────────────────────────────────────────
+            // Budget tiers (tokens): green < 500, yellow < 1500, red >= 1500
+            const TOKEN_MAX = 2000; // bar fills at 2k tokens
+            const fillPct = Math.min(100, Math.round((tokens / TOKEN_MAX) * 100));
+            const tierColor =
+              tokens === 0   ? '#94a3b8'  // slate-400 (empty)
+              : tokens < 500  ? '#10b981'  // emerald-500 (good)
+              : tokens < 1500 ? '#f59e0b'  // amber-500  (watch it)
+              :                 '#ef4444'; // red-500    (expensive)
+            const tierLabel =
+              tokens === 0   ? 'Empty'
+              : tokens < 500  ? 'Lean'
+              : tokens < 1500 ? 'Medium'
+              :                 'Heavy';
+            // ₹ cost estimate: ~₹0.026 per 1k tokens (GPT-4o input blended avg)
+            const costPaise = (tokens / 1000) * 26; // paise
+            const costStr = costPaise < 1
+              ? '< ₹0.01'
+              : costPaise < 100
+                ? `₹${(costPaise / 100).toFixed(3)}`
+                : `₹${(costPaise / 100).toFixed(2)}`;
+
             return (
               <div
                 key={slot.id}
                 className={`model-card-3d flex flex-col justify-between overflow-hidden transition-all duration-300 ${
-                  slot.enabled 
-                    ? `bg-white ${cfg.accentBorder} shadow-sm` 
+                  slot.enabled
+                    ? `bg-white ${cfg.accentBorder} shadow-sm`
                     : 'bg-slate-100/80 border-slate-200 opacity-60'
                 }`}
               >
                 <div>
                   {/* Top 3D Color Stripe for this Model */}
-                  <div 
+                  <div
                     className="h-[3px] w-full"
                     style={{ backgroundColor: cfg.themeColor }}
                   />
@@ -394,7 +416,7 @@ export const ModelPromptInput: React.FC<ModelPromptInputProps> = ({
                   {/* Model Box Header */}
                   <div className="p-3 bg-slate-50/90 border-b border-slate-200/70 flex items-center justify-between gap-2">
                     <div className="flex items-center space-x-2">
-                      <div 
+                      <div
                         className="w-7 h-7 rounded-xl flex items-center justify-center font-bold text-white text-xs shadow-xs shrink-0"
                         style={{ backgroundColor: cfg.themeColor }}
                       >
@@ -411,8 +433,11 @@ export const ModelPromptInput: React.FC<ModelPromptInputProps> = ({
                         </div>
                         <div className="mt-0.5">
                           {slot.enabled ? (
-                            <span className="text-[10px] font-mono font-semibold text-emerald-700">
-                              {tokens} tokens &bull; {chars} chars
+                            <span
+                              className="text-[10px] font-mono font-bold transition-colors duration-300"
+                              style={{ color: tierColor }}
+                            >
+                              {tokens} tok &bull; {chars} ch
                             </span>
                           ) : (
                             <span className="text-[10px] font-mono text-slate-400">
@@ -447,10 +472,10 @@ export const ModelPromptInput: React.FC<ModelPromptInputProps> = ({
 
                       <button
                         onClick={() => onUpdateSlot(slot.id, { enabled: !slot.enabled })}
-                        title={slot.enabled ? "Disable this box" : "Enable this box"}
+                        title={slot.enabled ? 'Disable this box' : 'Enable this box'}
                         className={`p-1.5 rounded-lg border transition-all active:scale-95 ${
-                          slot.enabled 
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-300 shadow-2xs' 
+                          slot.enabled
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-300 shadow-2xs'
                             : 'bg-slate-200 text-slate-400 border-slate-300'
                         }`}
                       >
@@ -479,6 +504,49 @@ export const ModelPromptInput: React.FC<ModelPromptInputProps> = ({
                       disabled={!slot.enabled}
                       className="w-full p-2.5 text-xs font-mono leading-relaxed text-slate-800 placeholder-slate-400 bg-slate-50/50 hover:bg-slate-50 focus:bg-white border border-slate-200 focus:border-indigo-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/15 resize-y transition-all disabled:bg-slate-100 disabled:cursor-not-allowed"
                     />
+
+                    {/* ── Live Token Counter Bar ─────────────────────────── */}
+                    <div className="mt-2 space-y-1">
+                      {/* Track + Fill */}
+                      <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-300 ease-out"
+                          style={{
+                            width: `${fillPct}%`,
+                            backgroundColor: tierColor,
+                          }}
+                        />
+                      </div>
+
+                      {/* Labels row */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-1.5">
+                          {/* Tier pill */}
+                          <span
+                            className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider"
+                            style={{
+                              color: tierColor,
+                              backgroundColor: `${tierColor}18`,
+                              border: `1px solid ${tierColor}40`,
+                            }}
+                          >
+                            {tierLabel}
+                          </span>
+                          <span className="text-[10px] font-mono text-slate-400">
+                            {tokens.toLocaleString()} tokens
+                          </span>
+                        </div>
+                        {/* Cost estimate */}
+                        <span
+                          className="text-[9px] font-mono font-bold tabular-nums transition-colors duration-300"
+                          style={{ color: tokens === 0 ? '#94a3b8' : tierColor }}
+                          title="Estimated input cost per run (GPT-4o blended avg)"
+                        >
+                          {tokens === 0 ? '—' : costStr + '/run'}
+                        </span>
+                      </div>
+                    </div>
+                    {/* ─────────────────────────────────────────────────── */}
                   </div>
                 </div>
 
